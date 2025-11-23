@@ -1,6 +1,6 @@
 #include "Core/BPR_Core.h"
 
-#include "Output/BPR_WindowOutputMD.h"
+#include "UI/BPR_TextWidget.h"
 #include "Extractors/BPR_Extractor_Actor.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Widgets/SWindow.h"
@@ -244,7 +244,7 @@ void BPR_Core::SetOutputText(const FText& NewText)
 {
     OutputText = NewText;
 
-    if (TSharedPtr<SBPR_WindowOutputMD> Window = OutputWindow.Pin())
+    if (TSharedPtr<SBPR_TextWidget> Window = OutputWindow.Pin())
     {
         Window->SetText(OutputText);
     }
@@ -275,7 +275,7 @@ const FText& BPR_Core::GetOutputText() const
 void BPR_Core::SetStructureText(const FText& NewText)
 {
     StructureText = NewText;
-    if (TSharedPtr<SBPR_WindowOutputMD> Tab = StructureTab.Pin())
+    if (TSharedPtr<SBPR_TextWidget> Tab = StructureTab.Pin())
     {
         Tab->SetText(StructureText);
     }
@@ -289,7 +289,7 @@ const FText& BPR_Core::GetStructureText() const
 void BPR_Core::SetGraphText(const FText& NewText)
 {
     GraphText = NewText;
-    if (TSharedPtr<SBPR_WindowOutputMD> Tab = GraphTab.Pin())
+    if (TSharedPtr<SBPR_TextWidget> Tab = GraphTab.Pin())
     {
         Tab->SetText(GraphText);
     }
@@ -410,7 +410,7 @@ void BPR_Core::OnExtraMenuEntryClicked(UObject* Object)
     // Создание окна остаётся без изменений
     if (!OutputWindow.IsValid())
     {
-        TSharedRef<SBPR_WindowOutputMD> WindowWidget = SNew(SBPR_WindowOutputMD);
+        TSharedRef<SBPR_TextWidget> WindowWidget = SNew(SBPR_TextWidget);
         WindowWidget->SetText(OutputText);
 
         TSharedRef<SWindow> Window = SNew(SWindow)
@@ -443,7 +443,7 @@ void BPR_Core::OnExtraMenuEntryClicked(UObject* Object)
 //
 //==============================================================================
 
-void BPR_Core::RegisterOutputWindow(TSharedPtr<SBPR_WindowOutputMD> InWindow)
+void BPR_Core::RegisterOutputWindow(TSharedPtr<SBPR_TextWidget> InWindow)
 {
     OutputWindow = InWindow;
 }
@@ -455,7 +455,7 @@ void BPR_Core::RegisterOutputWindow(TSharedPtr<SBPR_WindowOutputMD> InWindow)
 //
 //==============================================================================
 
-void BPR_Core::RegisterStructureTab(TSharedPtr<SBPR_WindowOutputMD> InTab)
+void BPR_Core::RegisterStructureTab(TSharedPtr<SBPR_TextWidget> InTab)
 {
     StructureTab = InTab;
     // Сразу выставляем текущий текст
@@ -463,7 +463,7 @@ void BPR_Core::RegisterStructureTab(TSharedPtr<SBPR_WindowOutputMD> InTab)
         StructureTab.Pin()->SetText(StructureText);
 }
 
-void BPR_Core::RegisterGraphTab(TSharedPtr<SBPR_WindowOutputMD> InTab)
+void BPR_Core::RegisterGraphTab(TSharedPtr<SBPR_TextWidget> InTab)
 {
     GraphTab = InTab;
     if (GraphTab.IsValid())

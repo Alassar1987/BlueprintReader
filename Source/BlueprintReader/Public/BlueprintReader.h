@@ -4,52 +4,32 @@
 #include "Modules/ModuleManager.h"
 
 #if WITH_EDITOR
-#include "UI/BPR_ContentBrowserAssetActions.h"
 #include "Widgets/Docking/SDockTab.h"
+#include "UI/BPR_ContentBrowserAssetActions.h"
 #endif
 
 #include "Core/BPR_Core.h"
 
-//==============================================================================
-//  FBlueprintReaderModule — главный модуль плагина
-//==============================================================================
-//  
-//  Пока переименован только модуль, остальной код и классы оставлены без изменений.
-//  Позже можно будет рефакторить Core, ContentBrowserAssetActions и методы вкладки.
-//==============================================================================
-
 class FBlueprintReaderModule : public IModuleInterface
 {
 public:
-
-	//---------------------------------------------------------------------- 
-	//  Жизненный цикл модуля
-	//---------------------------------------------------------------------- 
+	// Жизненный цикл модуля
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 
-	//---------------------------------------------------------------------- 
-	//  Доступ к Core
-	//---------------------------------------------------------------------- 
-	/** Возвращает экземпляр ядра плагина */
+	// Доступ к Core
 	BPR_Core* GetCoreInstance() const { return CoreInstance; }
 
 #if WITH_EDITOR
-	//---------------------------------------------------------------------- 
-	//  Вкладка вывода
-	//---------------------------------------------------------------------- 
-	/** Создаёт вкладку плагина и возвращает её виджет */
-	TSharedRef<SDockTab> SpawnBPROutputTab(const FSpawnTabArgs& Args);
-
-	/** Открывает вкладку (если она уже есть — активирует) */
-	void OpenBPROutputTab();
-
+	// Спавн и открытие главного окна (контейнера с вкладками)
+	TSharedRef<SDockTab> SpawnBPRMainTab(const FSpawnTabArgs& Args);
+	void OpenBPRMainTab();
 private:
-	/** Менеджер пользовательских пунктов меню в Content Browser */
+	// Менеджер пунктов контекстного меню Content Browser
 	TSharedPtr<FBPR_ContentBrowserAssetActions> ContentBrowserActions;
 #endif
 
 private:
-	/** Основной объект логики плагина */
+	// Основной объект логики плагина
 	BPR_Core* CoreInstance = nullptr;
 };

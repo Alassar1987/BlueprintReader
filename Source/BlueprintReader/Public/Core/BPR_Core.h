@@ -8,7 +8,7 @@
 
 
 
-class SBPR_WindowOutputMD;
+class SBPR_TextWidget;
 
 
 //==============================================================================
@@ -83,11 +83,11 @@ public:
     void OnExtraMenuEntryClicked(UObject* Object);
 
     /** Регистрирует окно вывода, созданное модулем */
-    void RegisterOutputWindow(TSharedPtr<SBPR_WindowOutputMD> InWindow);
+    void RegisterOutputWindow(TSharedPtr<SBPR_TextWidget> InWindow);
     
     // --- Регистрация вкладок в Core ---
-    void RegisterStructureTab(TSharedPtr<SBPR_WindowOutputMD> InTab);
-    void RegisterGraphTab(TSharedPtr<SBPR_WindowOutputMD> InTab);
+    void RegisterStructureTab(TSharedPtr<SBPR_TextWidget> InTab);
+    void RegisterGraphTab(TSharedPtr<SBPR_TextWidget> InTab);
 
 
 
@@ -110,11 +110,11 @@ private:
     FText OutputText = FText::GetEmpty();
 
     /** Слабая ссылка на окно вывода Markdown */
-    TWeakPtr<SBPR_WindowOutputMD> OutputWindow;
+    TWeakPtr<SBPR_TextWidget> OutputWindow;
     
     /** Слабые ссылки на виджеты вкладок */
-    TWeakPtr<SBPR_WindowOutputMD> StructureTab;
-    TWeakPtr<SBPR_WindowOutputMD> GraphTab;
+    TWeakPtr<SBPR_TextWidget> StructureTab;
+    TWeakPtr<SBPR_TextWidget> GraphTab;
 
 };
 
