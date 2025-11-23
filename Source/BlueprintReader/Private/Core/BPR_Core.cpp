@@ -264,6 +264,42 @@ const FText& BPR_Core::GetOutputText() const
     return OutputText;
 }
 
+//==============================================================================
+//  Новый блок для текста
+//==============================================================================
+//
+//  
+//
+//==============================================================================
+
+void BPR_Core::SetStructureText(const FText& NewText)
+{
+    StructureText = NewText;
+    if (TSharedPtr<SBPR_WindowOutputMD> Tab = StructureTab.Pin())
+    {
+        Tab->SetText(StructureText);
+    }
+}
+
+const FText& BPR_Core::GetStructureText() const
+{
+    return StructureText;
+}
+
+void BPR_Core::SetGraphText(const FText& NewText)
+{
+    GraphText = NewText;
+    if (TSharedPtr<SBPR_WindowOutputMD> Tab = GraphTab.Pin())
+    {
+        Tab->SetText(GraphText);
+    }
+}
+
+const FText& BPR_Core::GetGraphText() const
+{
+    return GraphText;
+}
+
 
 //==============================================================================
 //  OnExtraMenuEntryClicked
@@ -410,4 +446,26 @@ void BPR_Core::OnExtraMenuEntryClicked(UObject* Object)
 void BPR_Core::RegisterOutputWindow(TSharedPtr<SBPR_WindowOutputMD> InWindow)
 {
     OutputWindow = InWindow;
+}
+//==============================================================================
+//  Регистрация вкладок
+//==============================================================================
+//
+//  
+//
+//==============================================================================
+
+void BPR_Core::RegisterStructureTab(TSharedPtr<SBPR_WindowOutputMD> InTab)
+{
+    StructureTab = InTab;
+    // Сразу выставляем текущий текст
+    if (StructureTab.IsValid())
+        StructureTab.Pin()->SetText(StructureText);
+}
+
+void BPR_Core::RegisterGraphTab(TSharedPtr<SBPR_WindowOutputMD> InTab)
+{
+    GraphTab = InTab;
+    if (GraphTab.IsValid())
+        GraphTab.Pin()->SetText(GraphText);
 }

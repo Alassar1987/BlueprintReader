@@ -55,8 +55,6 @@ public:
     };
 
 
-public:
-
     //--------------------------------------------------------------------------
     //  Основная логика
     //--------------------------------------------------------------------------
@@ -72,12 +70,25 @@ public:
 
     /** Получает текущий текст вывода */
     const FText& GetOutputText() const;
+    
+    // --- Работа с текстом структуры ---
+    void SetStructureText(const FText& NewText);
+    const FText& GetStructureText() const;
+
+    // --- Работа с текстом графа ---
+    void SetGraphText(const FText& NewText);
+    const FText& GetGraphText() const;
 
     /** Обработчик кастомного пункта меню (отдельное окно) */
     void OnExtraMenuEntryClicked(UObject* Object);
 
     /** Регистрирует окно вывода, созданное модулем */
     void RegisterOutputWindow(TSharedPtr<SBPR_WindowOutputMD> InWindow);
+    
+    // --- Регистрация вкладок в Core ---
+    void RegisterStructureTab(TSharedPtr<SBPR_WindowOutputMD> InTab);
+    void RegisterGraphTab(TSharedPtr<SBPR_WindowOutputMD> InTab);
+
 
 
 private:
@@ -88,11 +99,22 @@ private:
 
     /** Кэшированный тип выбранного ассета */
     EAssetType CachedType = EAssetType::Unknown;
+    
+    /** Текст для вкладки структуры ассета */
+    FText StructureText = FText::FromString("No Asset Structure Data Found");
+
+    /** Текст для вкладки графа ассета */
+    FText GraphText = FText::FromString("No Asset Graphs Data Found");
 
     /** Текст, сгенерированный экстракторами */
     FText OutputText = FText::GetEmpty();
 
     /** Слабая ссылка на окно вывода Markdown */
     TWeakPtr<SBPR_WindowOutputMD> OutputWindow;
+    
+    /** Слабые ссылки на виджеты вкладок */
+    TWeakPtr<SBPR_WindowOutputMD> StructureTab;
+    TWeakPtr<SBPR_WindowOutputMD> GraphTab;
+
 };
 
