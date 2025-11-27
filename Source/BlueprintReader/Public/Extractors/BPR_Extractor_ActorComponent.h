@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/BPR_Core.h"
 
 class UActorComponent;
 class UBlueprint;
@@ -19,7 +20,7 @@ public:
 	~BPR_Extractor_ActorComponent();
 
 	/** Главная точка входа: обработка выбранного ассета */
-	void ProcessComponent(UObject* SelectedObject, FText& OutText);
+	void ProcessComponent(UObject* SelectedObject, FBPR_ExtractedData& OutData);
 
 private:
 	// Логирование

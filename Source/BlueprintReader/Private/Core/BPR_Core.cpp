@@ -17,7 +17,6 @@
 #include "Extractors/BPR_Extractor_StaticMesh.h"
 
 
-
 //==============================================================================
 //  IsSupportedAsset
 //==============================================================================
@@ -125,107 +124,107 @@ void BPR_Core::ExtractorSelector(UObject* Object)
 {
     switch (CachedType)
     {
-    case EAssetType::Actor:
-        {
-            BPR_Extractor_Actor Extractor;
-            FText GeneratedText;
-            Extractor.ProcessBlueprint(Object, GeneratedText);
-            SetOutputText(GeneratedText);
-            break;
-        }
-
-    case EAssetType::Material:
-        {
-            BPR_Extractor_Material Extractor;
-            FText GeneratedText;
-            Extractor.ProcessMaterial(Object, GeneratedText);
-            SetOutputText(GeneratedText);
-            break;
-        }
+    // case EAssetType::Actor:
+    //     {
+    //         BPR_Extractor_Actor Extractor;
+    //         FText GeneratedText;
+    //         Extractor.ProcessBlueprint(Object, GeneratedText);
+    //         SetOutputText(GeneratedText);
+    //         break;
+    //     }
+    //
+    // case EAssetType::Material:
+    //     {
+    //         BPR_Extractor_Material Extractor;
+    //         FText GeneratedText;
+    //         Extractor.ProcessMaterial(Object, GeneratedText);
+    //         SetOutputText(GeneratedText);
+    //         break;
+    //     }
 
     case EAssetType::ActorComponent:
         {
             BPR_Extractor_ActorComponent Extractor;
             FText GeneratedText;
-            Extractor.ProcessComponent(Object, GeneratedText); // предполагаемый метод
-            SetOutputText(GeneratedText);
+            Extractor.ProcessComponent(Object, TextData); // предполагаемый метод
+            //SetOutputText(GeneratedText);
             break;
         }
         
-    case EAssetType::MaterialInstance:
-        {
-            BPR_Extractor_MaterialInstance Extractor;
-            FText GeneratedText;
-            Extractor.ProcessMaterialInstance(Object, GeneratedText);
-            SetOutputText(GeneratedText);
-            break;
-        }
-        
-    case EAssetType::MaterialFunction:
-        {
-            BPR_Extractor_MaterialFunction Extractor;
-            FText GeneratedText;
-            Extractor.ProcessMaterialFunction(Object, GeneratedText);
-            SetOutputText(GeneratedText);
-            break;
-        }
-
-    case EAssetType::MaterialFunctionInstance:
-        {
-            BPR_Extractor_MFInstance Extractor;
-            FText GeneratedText;
-            Extractor.ProcessMFInstance(Object, GeneratedText);
-            SetOutputText(GeneratedText);
-            break;
-        }
-        
-    case EAssetType::Enum:
-        {
-            BPR_Extractor_Enum Extractor;
-            FText GeneratedText;
-            Extractor.ProcessEnum(Object, GeneratedText);
-            SetOutputText(GeneratedText);
-            break;
-        }
-        
-    case EAssetType::Structure:
-        {
-            BPR_Extractor_Structure Extractor;
-            FText GeneratedText;
-            Extractor.ProcessStructure(Object, GeneratedText); // метод, который ты реализовал
-            SetOutputText(GeneratedText);
-            break;
-        }
-        
-    case EAssetType::InterfaceBP:
-        {
-            BPR_Extractor_InterfaceBP Extractor;
-            FText GeneratedText;
-            Extractor.ProcessInterfaceBP(Object, GeneratedText); // метод, который реализуешь в экстракторе
-            SetOutputText(GeneratedText);
-            break;
-        }
-
-    case EAssetType::StaticMesh:
-        {
-            BPR_Extractor_StaticMesh Extractor;
-            FText GeneratedText;
-            Extractor.ProcessStaticMesh(Object, GeneratedText); // метод из болванки
-            SetOutputText(GeneratedText);
-            break;
-        }
-
-    case EAssetType::Widget:
-        {
-            BPR_Extractor_Widget Extractor;
-            FText GeneratedText;
-            Extractor.ProcessWidget(Object, GeneratedText); // предполагаемый метод
-            SetOutputText(GeneratedText);
-            break;
-        }
+    // case EAssetType::MaterialInstance:
+    //     {
+    //         BPR_Extractor_MaterialInstance Extractor;
+    //         FText GeneratedText;
+    //         Extractor.ProcessMaterialInstance(Object, GeneratedText);
+    //         SetOutputText(GeneratedText);
+    //         break;
+    //     }
+    //     
+    // case EAssetType::MaterialFunction:
+    //     {
+    //         BPR_Extractor_MaterialFunction Extractor;
+    //         FText GeneratedText;
+    //         Extractor.ProcessMaterialFunction(Object, GeneratedText);
+    //         SetOutputText(GeneratedText);
+    //         break;
+    //     }
+    //
+    // case EAssetType::MaterialFunctionInstance:
+    //     {
+    //         BPR_Extractor_MFInstance Extractor;
+    //         FText GeneratedText;
+    //         Extractor.ProcessMFInstance(Object, GeneratedText);
+    //         SetOutputText(GeneratedText);
+    //         break;
+    //     }
+    //     
+    // case EAssetType::Enum:
+    //     {
+    //         BPR_Extractor_Enum Extractor;
+    //         FText GeneratedText;
+    //         Extractor.ProcessEnum(Object, GeneratedText);
+    //         SetOutputText(GeneratedText);
+    //         break;
+    //     }
+    //     
+    // case EAssetType::Structure:
+    //     {
+    //         BPR_Extractor_Structure Extractor;
+    //         FText GeneratedText;
+    //         Extractor.ProcessStructure(Object, GeneratedText); // метод, который ты реализовал
+    //         SetOutputText(GeneratedText);
+    //         break;
+    //     }
+    //     
+    // case EAssetType::InterfaceBP:
+    //     {
+    //         BPR_Extractor_InterfaceBP Extractor;
+    //         FText GeneratedText;
+    //         Extractor.ProcessInterfaceBP(Object, GeneratedText); // метод, который реализуешь в экстракторе
+    //         SetOutputText(GeneratedText);
+    //         break;
+    //     }
+    //
+    // case EAssetType::StaticMesh:
+    //     {
+    //         BPR_Extractor_StaticMesh Extractor;
+    //         FText GeneratedText;
+    //         Extractor.ProcessStaticMesh(Object, GeneratedText); // метод из болванки
+    //         SetOutputText(GeneratedText);
+    //         break;
+    //     }
+    //
+    // case EAssetType::Widget:
+    //     {
+    //         BPR_Extractor_Widget Extractor;
+    //         FText GeneratedText;
+    //         Extractor.ProcessWidget(Object, GeneratedText); // предполагаемый метод
+    //         SetOutputText(GeneratedText);
+    //         break;
+    //     }
 
     default:
-        SetOutputText(FText::FromString("No suitable extractor found."));
+        //SetOutputText(FText::FromString("No suitable extractor found."));
         break;
     }
 }
@@ -240,15 +239,16 @@ void BPR_Core::ExtractorSelector(UObject* Object)
 //
 //==============================================================================
 
-void BPR_Core::SetOutputText(const FText& NewText)
-{
-    OutputText = NewText;
 
-    if (TSharedPtr<SBPR_TextWidget> Window = OutputWindow.Pin())
-    {
-        Window->SetText(OutputText);
-    }
-}
+// void BPR_Core::SetOutputText(const FText& NewText)
+// {
+//     OutputText = NewText;
+//
+//     if (TSharedPtr<SBPR_TextWidget> Window = OutputWindow.Pin())
+//     {
+//         Window->SetText(OutputText);
+//     }
+// }
 
 
 //==============================================================================
@@ -259,10 +259,10 @@ void BPR_Core::SetOutputText(const FText& NewText)
 //
 //==============================================================================
 
-const FText& BPR_Core::GetOutputText() const
-{
-    return OutputText;
-}
+// const FText& BPR_Core::GetOutputText() const
+// {
+//     return OutputText;
+// }
 
 //==============================================================================
 //  Новый блок для текста
@@ -272,33 +272,33 @@ const FText& BPR_Core::GetOutputText() const
 //
 //==============================================================================
 
-void BPR_Core::SetStructureText(const FText& NewText)
-{
-    StructureText = NewText;
-    if (TSharedPtr<SBPR_TextWidget> Tab = StructureTab.Pin())
-    {
-        Tab->SetText(StructureText);
-    }
-}
-
-const FText& BPR_Core::GetStructureText() const
-{
-    return StructureText;
-}
-
-void BPR_Core::SetGraphText(const FText& NewText)
-{
-    GraphText = NewText;
-    if (TSharedPtr<SBPR_TextWidget> Tab = GraphTab.Pin())
-    {
-        Tab->SetText(GraphText);
-    }
-}
-
-const FText& BPR_Core::GetGraphText() const
-{
-    return GraphText;
-}
+// void BPR_Core::SetStructureText(const FText& NewText)
+// {
+//     StructureText = NewText;
+//     if (TSharedPtr<SBPR_TextWidget> Tab = StructureTab.Pin())
+//     {
+//         Tab->SetText(StructureText);
+//     }
+// }
+//
+// const FText& BPR_Core::GetStructureText() const
+// {
+//     return StructureText;
+// }
+//
+// void BPR_Core::SetGraphText(const FText& NewText)
+// {
+//     GraphText = NewText;
+//     if (TSharedPtr<SBPR_TextWidget> Tab = GraphTab.Pin())
+//     {
+//         Tab->SetText(GraphText);
+//     }
+// }
+//
+// const FText& BPR_Core::GetGraphText() const
+// {
+//     return GraphText;
+// }
 
 
 //==============================================================================
@@ -319,84 +319,84 @@ void BPR_Core::OnExtraMenuEntryClicked(UObject* Object)
 
     switch (CachedType)
     {
-    case EAssetType::Actor:
-        {
-            BPR_Extractor_Actor Extractor;
-            Extractor.ProcessBlueprint(Object, GeneratedText);
-            break;
-        }
+    // case EAssetType::Actor:
+    //     {
+    //         BPR_Extractor_Actor Extractor;
+    //         Extractor.ProcessBlueprint(Object, GeneratedText);
+    //         break;
+    //     }
         
     case EAssetType::ActorComponent:
         {
             BPR_Extractor_ActorComponent Extractor;
-            Extractor.ProcessComponent(Object, GeneratedText);
+            Extractor.ProcessComponent(Object, TextData);
             break;
         }
 
-    case EAssetType::Material:
-        {
-            BPR_Extractor_Material Extractor;
-            Extractor.ProcessMaterial(Object, GeneratedText);
-            break;
-        }
-        
-    case EAssetType::MaterialInstance:
-        {
-            BPR_Extractor_MaterialInstance Extractor;
-            Extractor.ProcessMaterialInstance(Object, GeneratedText);
-            break;
-        }
-        
-    case EAssetType::MaterialFunction:
-        {
-            BPR_Extractor_MaterialFunction Extractor;
-            Extractor.ProcessMaterialFunction(Object, GeneratedText);
-            break;
-        }
-
-    case EAssetType::MaterialFunctionInstance:
-        {
-            BPR_Extractor_MFInstance Extractor;
-            Extractor.ProcessMFInstance(Object, GeneratedText);
-            break;
-        }
-        
-    case EAssetType::Enum:
-        {
-            BPR_Extractor_Enum Extractor;
-            Extractor.ProcessEnum(Object, GeneratedText);
-            break;
-        }
-        
-    case EAssetType::Structure:
-        {
-            BPR_Extractor_Structure Extractor;
-            Extractor.ProcessStructure(Object, GeneratedText);
-            break;
-        }
-        
-    case EAssetType::InterfaceBP:
-        {
-            BPR_Extractor_InterfaceBP Extractor;
-            Extractor.ProcessInterfaceBP(Object, GeneratedText);
-            break;
-        }
-
-    case EAssetType::StaticMesh:
-        {
-            BPR_Extractor_StaticMesh Extractor;
-            Extractor.ProcessStaticMesh(Object, GeneratedText);
-            break;
-        }
-
-
-    case EAssetType::Widget:
-        {
-            BPR_Extractor_Widget Extractor;
-            Extractor.ProcessWidget(Object, GeneratedText);
-            break;
-        }
-        
+    // case EAssetType::Material:
+    //     {
+    //         BPR_Extractor_Material Extractor;
+    //         Extractor.ProcessMaterial(Object, GeneratedText);
+    //         break;
+    //     }
+    //     
+    // case EAssetType::MaterialInstance:
+    //     {
+    //         BPR_Extractor_MaterialInstance Extractor;
+    //         Extractor.ProcessMaterialInstance(Object, GeneratedText);
+    //         break;
+    //     }
+    //     
+    // case EAssetType::MaterialFunction:
+    //     {
+    //         BPR_Extractor_MaterialFunction Extractor;
+    //         Extractor.ProcessMaterialFunction(Object, GeneratedText);
+    //         break;
+    //     }
+    //
+    // case EAssetType::MaterialFunctionInstance:
+    //     {
+    //         BPR_Extractor_MFInstance Extractor;
+    //         Extractor.ProcessMFInstance(Object, GeneratedText);
+    //         break;
+    //     }
+    //     
+    // case EAssetType::Enum:
+    //     {
+    //         BPR_Extractor_Enum Extractor;
+    //         Extractor.ProcessEnum(Object, GeneratedText);
+    //         break;
+    //     }
+    //     
+    // case EAssetType::Structure:
+    //     {
+    //         BPR_Extractor_Structure Extractor;
+    //         Extractor.ProcessStructure(Object, GeneratedText);
+    //         break;
+    //     }
+    //     
+    // case EAssetType::InterfaceBP:
+    //     {
+    //         BPR_Extractor_InterfaceBP Extractor;
+    //         Extractor.ProcessInterfaceBP(Object, GeneratedText);
+    //         break;
+    //     }
+    //
+    // case EAssetType::StaticMesh:
+    //     {
+    //         BPR_Extractor_StaticMesh Extractor;
+    //         Extractor.ProcessStaticMesh(Object, GeneratedText);
+    //         break;
+    //     }
+    //
+    //
+    // case EAssetType::Widget:
+    //     {
+    //         BPR_Extractor_Widget Extractor;
+    //         Extractor.ProcessWidget(Object, GeneratedText);
+    //         break;
+    //     }
+    //     
     
 
 
@@ -405,31 +405,31 @@ void BPR_Core::OnExtraMenuEntryClicked(UObject* Object)
         break;
     }
 
-    SetOutputText(GeneratedText);
+//    SetOutputText(GeneratedText);
 
-    // Создание окна остаётся без изменений
-    if (!OutputWindow.IsValid())
-    {
-        TSharedRef<SBPR_TextWidget> WindowWidget = SNew(SBPR_TextWidget);
-        WindowWidget->SetText(OutputText);
-
-        TSharedRef<SWindow> Window = SNew(SWindow)
-            .Title(FText::FromString("BPR Output"))
-            .ClientSize(FVector2D(600, 400))
-            .SupportsMinimize(true)
-            .SupportsMaximize(true)
-            [
-                WindowWidget
-            ];
-
-        FSlateApplication::Get().AddWindow(Window);
-
-        OutputWindow = WindowWidget;
-    }
-    else
-    {
-        OutputWindow.Pin()->SetText(OutputText);
-    }
+    // // Создание окна остаётся без изменений
+    // if (!OutputWindow.IsValid())
+    // {
+    //     TSharedRef<SBPR_TextWidget> WindowWidget = SNew(SBPR_TextWidget);
+    //     WindowWidget->SetText(OutputText);
+    //
+    //     TSharedRef<SWindow> Window = SNew(SWindow)
+    //         .Title(FText::FromString("BPR Output"))
+    //         .ClientSize(FVector2D(600, 400))
+    //         .SupportsMinimize(true)
+    //         .SupportsMaximize(true)
+    //         [
+    //             WindowWidget
+    //         ];
+    //
+    //     FSlateApplication::Get().AddWindow(Window);
+    //
+    //     OutputWindow = WindowWidget;
+    // }
+    // else
+    // {
+    //     OutputWindow.Pin()->SetText(OutputText);
+    // }
 }
 
 
@@ -443,10 +443,10 @@ void BPR_Core::OnExtraMenuEntryClicked(UObject* Object)
 //
 //==============================================================================
 
-void BPR_Core::RegisterOutputWindow(TSharedPtr<SBPR_TextWidget> InWindow)
-{
-    OutputWindow = InWindow;
-}
+// void BPR_Core::RegisterOutputWindow(TSharedPtr<SBPR_TextWidget> InWindow)
+// {
+//     OutputWindow = InWindow;
+// }
 //==============================================================================
 //  Регистрация вкладок
 //==============================================================================
@@ -455,17 +455,17 @@ void BPR_Core::RegisterOutputWindow(TSharedPtr<SBPR_TextWidget> InWindow)
 //
 //==============================================================================
 
-void BPR_Core::RegisterStructureTab(TSharedPtr<SBPR_TextWidget> InTab)
-{
-    StructureTab = InTab;
-    // Сразу выставляем текущий текст
-    if (StructureTab.IsValid())
-        StructureTab.Pin()->SetText(StructureText);
-}
+// void BPR_Core::RegisterStructureTab(TSharedPtr<SBPR_TextWidget> InTab)
+// {
+//     StructureTab = InTab;
+//     // Сразу выставляем текущий текст
+//     if (StructureTab.IsValid())
+//         StructureTab.Pin()->SetText(StructureText);
+// }
 
-void BPR_Core::RegisterGraphTab(TSharedPtr<SBPR_TextWidget> InTab)
-{
-    GraphTab = InTab;
-    if (GraphTab.IsValid())
-        GraphTab.Pin()->SetText(GraphText);
-}
+// void BPR_Core::RegisterGraphTab(TSharedPtr<SBPR_TextWidget> InTab)
+// {
+//     GraphTab = InTab;
+//     if (GraphTab.IsValid())
+//         GraphTab.Pin()->SetText(GraphText);
+// }

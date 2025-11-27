@@ -19,12 +19,14 @@ BPR_Extractor_ActorComponent::~BPR_Extractor_ActorComponent() {}
 //---------------------------------------------
 // Главная точка входа
 //---------------------------------------------
-void BPR_Extractor_ActorComponent::ProcessComponent(UObject* SelectedObject, FText& OutText)
+void BPR_Extractor_ActorComponent::ProcessComponent(UObject* SelectedObject, FBPR_ExtractedData& OutData)
 {
     if (!SelectedObject)
     {
         LogError(TEXT("SelectedObject is null!"));
-        OutText = FText::FromString("Error: SelectedObject is null.");
+        //OutText = FText::FromString("Error: SelectedObject is null.");
+        OutData.Structure = FText::FromString("Error: SelectedObject is null.");
+        OutData.Graph = FText::FromString("Error: SelectedObject is null.");
         return;
     }
 
@@ -32,24 +34,29 @@ void BPR_Extractor_ActorComponent::ProcessComponent(UObject* SelectedObject, FTe
     if (!Blueprint)
     {
         LogWarning(TEXT("Selected object is not a Blueprint asset."));
-        OutText = FText::FromString("Warning: Selected object is not a Blueprint.");
+        //OutText = FText::FromString("Warning: Selected object is not a Blueprint.");
+        OutData.Structure = FText::FromString("Warning: Selected object is not a Blueprint.");
+        OutData.Graph = FText::FromString("Warning: Selected object is not a Blueprint.");
         return;
     }
 
-    FString TmpText = FString::Printf(TEXT("# BP2MD Export for Component: %s\n\n"), *Blueprint->GetName());
+    FString TmpStructure = FString::Printf(TEXT("# Structure Export for Component: %s\n\n"), *Blueprint->GetName());
+    FString TmpGraph = FString::Printf(TEXT("# Graphs Export for Component: %s\n\n"), *Blueprint->GetName());
 
-    AppendVariables(Blueprint, TmpText);
-    AppendGraphs(Blueprint, TmpText);
+    AppendVariables(Blueprint, TmpStructure);
+    AppendGraphs(Blueprint, TmpGraph);
 
-    OutText = FText::FromString(TmpText);
+    //OutText = FText::FromString(TmpText);
+    OutData.Structure = FText::FromString(TmpStructure);
+    OutData.Graph     = FText::FromString(TmpGraph);
 }
 
 //---------------------------------------------
 // Логирование
 //---------------------------------------------
-void BPR_Extractor_ActorComponent::LogMessage(const FString& Msg) { UE_LOG(LogTemp, Log, TEXT("[BPRBPR_Extractor_ActorComponent] %s"), *Msg); }
-void BPR_Extractor_ActorComponent::LogWarning(const FString& Msg) { UE_LOG(LogTemp, Warning, TEXT("[BPRBPR_Extractor_ActorComponent] %s"), *Msg); }
-void BPR_Extractor_ActorComponent::LogError(const FString& Msg) { UE_LOG(LogTemp, Error, TEXT("[BPRBPR_Extractor_ActorComponent] %s"), *Msg); }
+void BPR_Extractor_ActorComponent::LogMessage(const FString& Msg) { UE_LOG(LogTemp, Log, TEXT("[BPR_Extractor_ActorComponent] %s"), *Msg); }
+void BPR_Extractor_ActorComponent::LogWarning(const FString& Msg) { UE_LOG(LogTemp, Warning, TEXT("[BPR_Extractor_ActorComponent] %s"), *Msg); }
+void BPR_Extractor_ActorComponent::LogError(const FString& Msg) { UE_LOG(LogTemp, Error, TEXT("[BPR_Extractor_ActorComponent] %s"), *Msg); }
 
 //---------------------------------------------
 // Переменные
