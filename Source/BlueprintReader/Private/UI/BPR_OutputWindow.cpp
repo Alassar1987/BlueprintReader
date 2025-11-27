@@ -1,19 +1,18 @@
 #include "UI/BPR_OutputWindow.h"
-#include "UI/BPR_TabManager.h"
-#include "UI/BPR_TextWidget.h"
+#include "UI/BPR_TabSwitcher.h"
 
 #include "Widgets/SWindow.h"
 #include "Framework/Application/SlateApplication.h"
 
 BPR_OutputWindow::BPR_OutputWindow()
 {
-	// Создаём менеджер вкладок
-	TabManager = MakeShared<SBPR_TabManager>();
+	// Создаём TabSwitcher
+	TabSwitcher = MakeShared<SBPR_TabSwitcher>();
 }
 
 BPR_OutputWindow::~BPR_OutputWindow()
 {
-	// При необходимости можно закрывать окно
+	// Закрываем окно, если оно существует
 	if (TSharedPtr<SWindow> W = Window.Pin())
 	{
 		W->RequestDestroyWindow();
@@ -22,20 +21,22 @@ BPR_OutputWindow::~BPR_OutputWindow()
 
 void BPR_OutputWindow::Open()
 {
+	// Если окно уже открыто — поднимаем его на передний план
 	if (Window.IsValid())
 	{
 		Window.Pin()->BringToFront();
 		return;
 	}
 
-	// Создаём окно Slate
+	// Создаём новое окно Slate
 	TSharedRef<SWindow> NewWindow = SNew(SWindow)
 		.Title(FText::FromString("BPR Output"))
 		.ClientSize(FVector2D(800, 600))
 		.SupportsMaximize(true)
 		.SupportsMinimize(true)
 		[
-			TabManager->AsShared() // вставляем TabManager прямо в окно
+			// Вставляем TabSwitcher прямо в окно
+			TabSwitcher->AsShared()
 		];
 
 	FSlateApplication::Get().AddWindow(NewWindow);

@@ -2,27 +2,28 @@
 
 void SBPR_TextWidget::Construct(const FArguments& InArgs)
 {
+    // Создаём виджет
     ChildSlot
     [
         SAssignNew(ScrollBox, SBPR_ScrollBox)
-        .Orientation(EOrientation::Orient_Vertical)
+        .Orientation(Orient_Vertical)
         [
-            SAssignNew(TextBlock, STextBlock)
+            SAssignNew(MultiLineText, SMultiLineEditableText)
+            // Текст по умолчанию пустой
+            .Text(FText::GetEmpty())
+            // Можно выделять текст и копировать
+            .IsReadOnly(true)
+            .AllowContextMenu(true)
             .AutoWrapText(true)
+            // При необходимости можно добавить стили текста
         ]
     ];
-	
-    // Устанавливаем начальный текст сразу после создания виджета
-    if (TextBlock.IsValid())
-    {
-        TextBlock->SetText(FText::FromString("Привет, мир!"));
-    }
 }
 
-void SBPR_TextWidget::SetText(const FText& NewText)
+void SBPR_TextWidget::SetText(const FText& InText)
 {
-    if (TextBlock.IsValid())
+    if (MultiLineText.IsValid())
     {
-        TextBlock->SetText(NewText);
+        MultiLineText->SetText(InText);
     }
 }
