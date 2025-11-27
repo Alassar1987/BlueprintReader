@@ -1,96 +1,58 @@
 #include "BlueprintReader.h"
 
 #include "Core/BPR_Core.h"
+#include "UI/BPR_OutputWindow.h"
 #include "UI/BPR_ContentBrowserAssetActions.h"
-#include "UI/BPR_TabManager.h"          // твой новый виджет-менеджер вкладок
 
 #include "Modules/ModuleManager.h"
-#include "Framework/Docking/TabManager.h"
-#include "Widgets/Docking/SDockTab.h"
-#include "WorkspaceMenuStructure.h"
-#include "WorkspaceMenuStructureModule.h"
 
-#define BPR_MAIN_TAB_NAME TEXT("BPR_MainTab")
+#if WITH_EDITOR
+#include "Framework/Application/SlateApplication.h"
+#endif
 
-//==============================================================================
-// StartupModule
-//==============================================================================
 void FBlueprintReaderModule::StartupModule()
 {
-#if WITH_EDITOR
-	// Создаём ядро плагина
+	// Создаём Core
 	CoreInstance = new BPR_Core();
 
-	// Регистрируем пункт в Content Browser
+#if WITH_EDITOR
+	// Создаём окно результатов
+	OutputWindow = MakeShared<BPR_OutputWindow>();
+
+	// Регистрируем действия в Content Browser
 	ContentBrowserActions = MakeShared<FBPR_ContentBrowserAssetActions>();
 	ContentBrowserActions->Register();
-
-	// Регистрируем единый NomadTab — главный контейнер для внутренних вкладок
-	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(
-		FName(BPR_MAIN_TAB_NAME),
-		FOnSpawnTab::CreateRaw(this, &FBlueprintReaderModule::SpawnBPRMainTab)
-	)
-	.SetDisplayName(FText::FromString("BlueprintReader"))
-	.SetMenuType(ETabSpawnerMenuType::Hidden);
-
 #endif
 }
 
-//==============================================================================
-// ShutdownModule
-//==============================================================================
 void FBlueprintReaderModule::ShutdownModule()
 {
 #if WITH_EDITOR
-	// Удаляем Core
-	if (CoreInstance)
-	{
-		delete CoreInstance;
-		CoreInstance = nullptr;
-	}
-
-	// Убираем пункты меню
 	if (ContentBrowserActions.IsValid())
 	{
 		ContentBrowserActions->Unregister();
 		ContentBrowserActions.Reset();
 	}
 
-	// Снимаем регистрацию основного таба
-	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(FName(BPR_MAIN_TAB_NAME));
+	OutputWindow.Reset();
 #endif
+
+	// Удаляем Core
+	if (CoreInstance)
+	{
+		delete CoreInstance;
+		CoreInstance = nullptr;
+	}
 }
 
-//==============================================================================
-// Spawn главного окна (внутри него создаётся TabManager с двумя вкладками)
-//==============================================================================
-TSharedRef<SDockTab> FBlueprintReaderModule::SpawnBPRMainTab(const FSpawnTabArgs& Args)
-{
-	// Создаём твой главный виджет, который внутри создаёт две вкладки
-	TSharedRef<SBPR_TabManager> MainWidget = SNew(SBPR_TabManager);
-
-	// При необходимости можно передать ссылку на Core внутрь TabManager:
-	// MainWidget->SetCoreInstance(CoreInstance);
-	// (Реализуй метод в TabManager, если захочешь)
-
-	return SNew(SDockTab)
-		.TabRole(ETabRole::NomadTab)
-		[
-			MainWidget
-		];
-}
-
-//==============================================================================
-// Открыть/активировать главное окно
-//==============================================================================
-void FBlueprintReaderModule::OpenBPRMainTab()
-{
 #if WITH_EDITOR
-	FGlobalTabmanager::Get()->TryInvokeTab(FName(BPR_MAIN_TAB_NAME));
-#endif
+void FBlueprintReaderModule::OpenOutputWindow()
+{
+	if (OutputWindow.IsValid())
+	{
+		OutputWindow->Open();
+	}
 }
+#endif
 
-//==============================================================================
-// Регистрация модуля
-//==============================================================================
 IMPLEMENT_MODULE(FBlueprintReaderModule, BlueprintReader);

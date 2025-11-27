@@ -4,32 +4,38 @@
 #include "Modules/ModuleManager.h"
 
 #if WITH_EDITOR
-#include "Widgets/Docking/SDockTab.h"
 #include "UI/BPR_ContentBrowserAssetActions.h"
 #endif
 
-#include "Core/BPR_Core.h"
+class BPR_Core;
+class BPR_OutputWindow;
 
 class FBlueprintReaderModule : public IModuleInterface
 {
 public:
-	// Жизненный цикл модуля
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 
-	// Доступ к Core
+	/** Доступ к Core */
 	BPR_Core* GetCoreInstance() const { return CoreInstance; }
 
+	/** Доступ к окну */
+	TSharedPtr<BPR_OutputWindow> GetOutputWindow() const { return OutputWindow; }
+
 #if WITH_EDITOR
-	// Спавн и открытие главного окна (контейнера с вкладками)
-	TSharedRef<SDockTab> SpawnBPRMainTab(const FSpawnTabArgs& Args);
-	void OpenBPRMainTab();
-private:
-	// Менеджер пунктов контекстного меню Content Browser
-	TSharedPtr<FBPR_ContentBrowserAssetActions> ContentBrowserActions;
+	/** Открыть окно вручную (если нужно) */
+	void OpenOutputWindow();
 #endif
 
 private:
-	// Основной объект логики плагина
+	/** Логика */
 	BPR_Core* CoreInstance = nullptr;
+
+	/** Окно результата */
+	TSharedPtr<BPR_OutputWindow> OutputWindow;
+
+#if WITH_EDITOR
+	/** Регистрируем контекстное меню в Content Browser */
+	TSharedPtr<FBPR_ContentBrowserAssetActions> ContentBrowserActions;
+#endif
 };
