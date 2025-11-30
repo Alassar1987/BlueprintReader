@@ -66,12 +66,15 @@ void FBlueprintReaderModule::OpenOutputWindow()
 //==============================================================================
 // HandleMenuClick
 //==============================================================================
-// Вызывается из FBPR_ContentBrowserAssetActions при клике по ассету
 #if WITH_EDITOR
 void FBlueprintReaderModule::HandleMenuClick(UObject* SelectedObject)
 {
 	if (!SelectedObject || !CoreInstance || !OutputWindow.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("BPR: Invalid state - Object=%d, Core=%d, Window=%d"), 
+			SelectedObject != nullptr, CoreInstance != nullptr, OutputWindow.IsValid());
 		return;
+	}
 
 	// Проверяем, поддерживается ли ассет
 	if (!CoreInstance->IsSupportedAsset(SelectedObject))
@@ -80,19 +83,33 @@ void FBlueprintReaderModule::HandleMenuClick(UObject* SelectedObject)
 		return;
 	}
 
-	// --- Сначала открываем окно, чтобы виджеты TabSwitcher были созданы ---
+	// ВАЖНО: Сначала открываем окно и даём виджетам инициализироваться
 	OutputWindow->Open();
 
-	// --- Запускаем экстрактор, Core наполняет FBPR_ExtractedData ---
+	// Получаем TabSwitcher ПОСЛЕ открытия окна
+	TSharedPtr<SBPR_TabSwitcher> TabSwitcher = OutputWindow->GetTabSwitcher();
+	if (!TabSwitcher.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("BPR: TabSwitcher is invalid after opening window!"));
+		return;
+	}
+
+	// Запускаем экстрактор
 	CoreInstance->ExtractorSelector(SelectedObject);
 
-	// --- Передаем данные в TabSwitcher окна ---
-	if (TSharedPtr<SBPR_TabSwitcher> TabSwitcher = OutputWindow->GetTabSwitcher())
-	{
-		TabSwitcher->SetData(CoreInstance->GetTextData());
-	}
-}
+	// Получаем данные из Core
+	const FBPR_ExtractedData& ExtractedData = CoreInstance->GetTextData();
 
+	// Логируем для отладки
+	UE_LOG(LogTemp, Log, TEXT("BPR: Setting data - Structure length: %d, Graph length: %d"),
+		ExtractedData.Structure.ToString().Len(),
+		ExtractedData.Graph.ToString().Len());
+
+	// Передаем данные в TabSwitcher
+	TabSwitcher->SetData(ExtractedData);
+	
+	UE_LOG(LogTemp, Log, TEXT("BPR: Data successfully set to TabSwitcher"));
+}
 #endif
 
 //==============================================================================

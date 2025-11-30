@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Widgets/SWindow.h"
 
 class SBPR_TabSwitcher;
 

@@ -1,6 +1,5 @@
 #include "UI/BPR_OutputWindow.h"
 #include "UI/BPR_TabSwitcher.h"
-
 #include "Widgets/SWindow.h"
 #include "Framework/Application/SlateApplication.h"
 
@@ -40,6 +39,10 @@ void BPR_OutputWindow::Open()
 		];
 
 	FSlateApplication::Get().AddWindow(NewWindow);
-
 	Window = NewWindow;
+
+	UE_LOG(LogTemp, Log, TEXT("BPR_OutputWindow: Window opened successfully"));
+    
+	// ВАЖНО: Не нужно вручную вызывать TryApplyPendingData!
+	// TabSwitcher сам применит данные через RegisterActiveTimer в SetData()
 }
