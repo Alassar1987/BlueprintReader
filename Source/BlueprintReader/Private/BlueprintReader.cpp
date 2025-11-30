@@ -80,18 +80,19 @@ void FBlueprintReaderModule::HandleMenuClick(UObject* SelectedObject)
 		return;
 	}
 
-	// Запускаем экстрактор, Core наполняет FBPR_ExtractedData
+	// --- Сначала открываем окно, чтобы виджеты TabSwitcher были созданы ---
+	OutputWindow->Open();
+
+	// --- Запускаем экстрактор, Core наполняет FBPR_ExtractedData ---
 	CoreInstance->ExtractorSelector(SelectedObject);
 
-	// Передаем данные в TabSwitcher окна
+	// --- Передаем данные в TabSwitcher окна ---
 	if (TSharedPtr<SBPR_TabSwitcher> TabSwitcher = OutputWindow->GetTabSwitcher())
 	{
 		TabSwitcher->SetData(CoreInstance->GetTextData());
 	}
-
-	// Открываем окно, если оно ещё не открыто
-	OutputWindow->Open();
 }
+
 #endif
 
 //==============================================================================
