@@ -2,36 +2,29 @@
 
 void SBPR_TextWidget::Construct(const FArguments& InArgs)
 {
-    // Создаём виджет
     ChildSlot
     [
-        SAssignNew(ScrollBox, SBPR_ScrollBox)
-        .Orientation(Orient_Vertical)
+        SNew(SScrollBox)
+        .Orientation(EOrientation::Orient_Vertical)
+
+        + SScrollBox::Slot()
         [
             SAssignNew(MultiLineText, SMultiLineEditableText)
-            // Текст по умолчанию
-            .Text(FText::FromString("Waiting for data..."))
-            // Можно выделять текст и копировать
             .IsReadOnly(true)
             .AllowContextMenu(true)
             .AutoWrapText(true)
+            .Text(FText::FromString("Waiting for data..."))
         ]
     ];
-    
-    UE_LOG(LogTemp, Log, TEXT("SBPR_TextWidget: Constructed successfully"));
+
+    UE_LOG(LogTemp, Log, TEXT("SBPR_TextWidget: Constructed"));
 }
 
 void SBPR_TextWidget::SetText(const FText& InText)
 {
-    if (!MultiLineText.IsValid())
-    {
-        UE_LOG(LogTemp, Error, TEXT("SBPR_TextWidget: Cannot set text - MultiLineText is invalid!"));
-        return;
-    }
-    
-    UE_LOG(LogTemp, Log, TEXT("SBPR_TextWidget: Setting text (length: %d): %s"), 
-        InText.ToString().Len(), 
-        *InText.ToString().Left(100)); // Логируем первые 100 символов
-    
+    // Конструкция гарантирует MultiLineText после Construct
     MultiLineText->SetText(InText);
+
+    UE_LOG(LogTemp, Log, TEXT("SBPR_TextWidget: Text applied (%d chars)"),
+        InText.ToString().Len());
 }

@@ -2,7 +2,9 @@
 
 #include "CoreMinimal.h"
 #include "Widgets/SWindow.h"
+#include "core/BPR_Core.h"
 
+struct FBPR_ExtractedData;
 class SBPR_TabSwitcher;
 
 /**
@@ -17,8 +19,8 @@ public:
 	BPR_OutputWindow();
 	~BPR_OutputWindow();
 
-	/** Открыть окно */
-	void Open();
+	/** Открыть окно с опциональными начальными данными */
+	void Open(const TOptional<FBPR_ExtractedData>& InitialData = TOptional<FBPR_ExtractedData>());
 
 	/** Получить TabSwitcher для передачи данных из Core */
 	TSharedPtr<SBPR_TabSwitcher> GetTabSwitcher() const { return TabSwitcher; }

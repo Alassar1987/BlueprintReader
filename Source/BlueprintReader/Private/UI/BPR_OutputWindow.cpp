@@ -5,8 +5,7 @@
 
 BPR_OutputWindow::BPR_OutputWindow()
 {
-	// Создаём TabSwitcher
-	TabSwitcher = MakeShared<SBPR_TabSwitcher>();
+	// Конструктор больше не создаёт TabSwitcher через MakeShared
 }
 
 BPR_OutputWindow::~BPR_OutputWindow()
@@ -18,7 +17,7 @@ BPR_OutputWindow::~BPR_OutputWindow()
 	}
 }
 
-void BPR_OutputWindow::Open()
+void BPR_OutputWindow::Open(const TOptional<FBPR_ExtractedData>& InitialData)
 {
 	// Если окно уже открыто — поднимаем его на передний план
 	if (Window.IsValid())
@@ -27,22 +26,25 @@ void BPR_OutputWindow::Open()
 		return;
 	}
 
-	// Создаём новое окно Slate
+	// Создаём TabSwitcher и сразу передаём начальные данные
+	TSharedRef<SBPR_TabSwitcher> TabSwitcherRef = SNew(SBPR_TabSwitcher)
+		.InitialData(InitialData);
+
+	// Создаём новое окно Slate и вставляем в него TabSwitcher
 	TSharedRef<SWindow> NewWindow = SNew(SWindow)
 		.Title(FText::FromString("BPR Output"))
 		.ClientSize(FVector2D(800, 600))
 		.SupportsMaximize(true)
 		.SupportsMinimize(true)
 		[
-			// Вставляем TabSwitcher прямо в окно
-			TabSwitcher->AsShared()
+			TabSwitcherRef
 		];
 
 	FSlateApplication::Get().AddWindow(NewWindow);
+
+	// Сохраняем ссылки
 	Window = NewWindow;
+	TabSwitcher = TabSwitcherRef;
 
 	UE_LOG(LogTemp, Log, TEXT("BPR_OutputWindow: Window opened successfully"));
-    
-	// ВАЖНО: Не нужно вручную вызывать TryApplyPendingData!
-	// TabSwitcher сам применит данные через RegisterActiveTimer в SetData()
 }
