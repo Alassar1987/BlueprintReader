@@ -13,6 +13,7 @@ class BPR_OutputWindow;
 class FBlueprintReaderModule : public IModuleInterface
 {
 public:
+	// Жизненный цикл модуля
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 
@@ -23,19 +24,22 @@ public:
 	TSharedPtr<BPR_OutputWindow> GetOutputWindow() const { return OutputWindow; }
 
 #if WITH_EDITOR
-	/** Открыть окно вручную (если нужно) */
+	/** Открыть окно вручную */
 	void OpenOutputWindow();
+
+	/** Обрабатывает клик по пункту контекстного меню */
+	void HandleMenuClick(UObject* SelectedObject);
 #endif
 
 private:
-	/** Логика */
+	/** Центральная логика плагина */
 	BPR_Core* CoreInstance = nullptr;
 
-	/** Окно результата */
+	/** Окно вывода с TabSwitcher */
 	TSharedPtr<BPR_OutputWindow> OutputWindow;
 
 #if WITH_EDITOR
-	/** Регистрируем контекстное меню в Content Browser */
+	/** Контекстное меню в Content Browser */
 	TSharedPtr<FBPR_ContentBrowserAssetActions> ContentBrowserActions;
 #endif
 };
