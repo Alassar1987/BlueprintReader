@@ -8,7 +8,6 @@ void SBPR_TabSwitcher::Construct(const FArguments& InArgs)
 {
 	UE_LOG(LogTemp, Log, TEXT("BPR_TabSwitcher: Construct starting"));
 
-	// Сохраняем начальные данные
 	if (InArgs._InitialData.IsSet())
 	{
 		PendingData = InArgs._InitialData.GetValue();
@@ -65,7 +64,6 @@ void SBPR_TabSwitcher::Construct(const FArguments& InArgs)
 	UE_LOG(LogTemp, Log, TEXT("BPR_TabSwitcher: StructureTextWidget valid = %d"), StructureTextWidget.IsValid());
 	UE_LOG(LogTemp, Log, TEXT("BPR_TabSwitcher: GraphTextWidget valid = %d"), GraphTextWidget.IsValid());
 
-	// Применяем данные сразу после создания виджетов
 	if (PendingData.IsSet())
 	{
 		ApplyPendingData();
@@ -102,8 +100,10 @@ void SBPR_TabSwitcher::ApplyPendingData()
 
 	UE_LOG(LogTemp, Log, TEXT("BPR_TabSwitcher: Applying pending data NOW"));
 
-	StructureTextWidget->SetText(PendingData->Structure);
-	GraphTextWidget->SetText(PendingData->Graph);
+	if (StructureTextWidget.IsValid())
+		StructureTextWidget->SetText(PendingData->Structure);
+	if (GraphTextWidget.IsValid())
+		GraphTextWidget->SetText(PendingData->Graph);
 
 	PendingData.Reset();
 

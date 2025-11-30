@@ -12,9 +12,9 @@ public:
 		: _InitialData()
 	{}
 	SLATE_ARGUMENT(TOptional<FBPR_ExtractedData>, InitialData)
-SLATE_END_ARGS()
+	SLATE_END_ARGS()
 
-void Construct(const FArguments& InArgs);
+	void Construct(const FArguments& InArgs);
 
 	/** Устанавливает данные после создания виджета */
 	void SetData(const FBPR_ExtractedData& InData);
