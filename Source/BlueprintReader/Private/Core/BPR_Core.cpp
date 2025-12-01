@@ -15,9 +15,13 @@
 #include "Blueprint/UserWidget.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Widgets/SWindow.h"
+#include "Logging/LogMacros.h"
 
 //==============================================================================
 //  IsSupportedAsset
+//==============================================================================
+//  Устанавливает CachedType и возвращает true, если поддерживается.
+//  Осторожно: этот метод выставляет CachedType как побочный эффект.
 //==============================================================================
 bool BPR_Core::IsSupportedAsset(UObject* Object)
 {
@@ -63,20 +67,41 @@ bool BPR_Core::IsSupportedAsset(UObject* Object)
 //==============================================================================
 void BPR_Core::ExtractorSelector(UObject* Object)
 {
+    if (!Object) return;
+
+    if (CachedType == EAssetType::Unknown)
+    {
+        IsSupportedAsset(Object);
+    }
+
     switch (CachedType)
     {
     case EAssetType::ActorComponent:
         {
+            UE_LOG(LogTemp, Log, TEXT("BPR_Core: Using ActorComponent extractor"));
             BPR_Extractor_ActorComponent Extractor;
             Extractor.ProcessComponent(Object, TextData);
             break;
         }
 
-    // Остальные экстракторы пока закомментированы
-    // case EAssetType::Actor: ...
-    // case EAssetType::Material: ...
-    // case EAssetType::Widget: ...
+    case EAssetType::Actor:
+        {
+            UE_LOG(LogTemp, Log, TEXT("BPR_Core: Using Actor extractor"));
+            BPR_Extractor_Actor Extractor;
+            Extractor.ProcessActor(Object, TextData);
+            break;
+        }
+
+    case EAssetType::Enum:
+        {
+            UE_LOG(LogTemp, Log, TEXT("BPR_Core: Using Enum extractor"));
+            BPR_Extractor_Enum Extractor;
+            Extractor.ProcessEnum(Object, TextData);
+            break;
+        }
+
     default:
+        UE_LOG(LogTemp, Warning, TEXT("BPR_Core: No extractor for CachedType %d"), static_cast<int32>(CachedType));
         break;
     }
 }
@@ -88,28 +113,41 @@ void BPR_Core::OnExtraMenuEntryClicked(UObject* Object)
 {
     if (!Object) return;
 
+    if (CachedType == EAssetType::Unknown)
+    {
+        IsSupportedAsset(Object);
+    }
+
     switch (CachedType)
     {
     case EAssetType::ActorComponent:
         {
+            UE_LOG(LogTemp, Log, TEXT("BPR_Core: OnExtraMenuEntryClicked - ActorComponent"));
             BPR_Extractor_ActorComponent Extractor;
             Extractor.ProcessComponent(Object, TextData);
+            break;
+        }
+
+    case EAssetType::Actor:
+        {
+            UE_LOG(LogTemp, Log, TEXT("BPR_Core: OnExtraMenuEntryClicked - Actor"));
+            BPR_Extractor_Actor Extractor;
+            Extractor.ProcessActor(Object, TextData);
+            break;
+        }
+
+    case EAssetType::Enum:
+        {
+            UE_LOG(LogTemp, Log, TEXT("BPR_Core: OnExtraMenuEntryClicked - Enum"));
+            BPR_Extractor_Enum Extractor;
+            Extractor.ProcessEnum(Object, TextData);
             break;
         }
 
     default:
         TextData.Structure = FText::FromString("No suitable extractor found.");
         TextData.Graph     = FText::FromString("No suitable extractor found.");
+        UE_LOG(LogTemp, Warning, TEXT("BPR_Core: OnExtraMenuEntryClicked - no extractor for type %d"), static_cast<int32>(CachedType));
         break;
     }
-
-    // Старое окно закомментировано
-    // if (!OutputWindow.IsValid()) ...
 }
-
-//==============================================================================
-//  Регистрация окон и вкладок (закомментировано)
-//==============================================================================
-// void BPR_Core::RegisterOutputWindow(TSharedPtr<SBPR_TextWidget> InWindow) { OutputWindow = InWindow; }
-// void BPR_Core::RegisterStructureTab(TSharedPtr<SBPR_TextWidget> InTab) { StructureTab = InTab; if (StructureTab.IsValid()) StructureTab.Pin()->SetText(StructureText); }
-// void BPR_Core::RegisterGraphTab(TSharedPtr<SBPR_TextWidget> InTab) { GraphTab = InTab; if (GraphTab.IsValid()) GraphTab.Pin()->SetText(GraphText); }

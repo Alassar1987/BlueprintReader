@@ -1,27 +1,31 @@
 #include "Extractors/BPR_Extractor_Enum.h"
 #include "UObject/UnrealType.h" // для UEnum
-#include "Misc/OutputDeviceDebug.h"
 
 BPR_Extractor_Enum::BPR_Extractor_Enum() {}
 BPR_Extractor_Enum::~BPR_Extractor_Enum() {}
 
-void BPR_Extractor_Enum::ProcessEnum(UObject* Object, FText& OutText)
+void BPR_Extractor_Enum::ProcessEnum(UObject* Object, FBPR_ExtractedData& OutData)
 {
 #if WITH_EDITOR
-    FString Result;
+    FString StructureText;
+    FString GraphText = TEXT("# Enum has no graph\n");
 
     UEnum* Enum = Cast<UEnum>(Object);
     if (!Enum)
     {
-        OutText = FText::FromString("Object is not an Enum.");
+        StructureText = TEXT("Object is not an Enum.");
+        GraphText = TEXT("N/A");
+        OutData.Structure = FText::FromString(StructureText);
+        OutData.Graph = FText::FromString(GraphText);
         return;
     }
 
-    Result += FString::Printf(TEXT("# Enum: %s\n\n"), *Enum->GetName());
+    StructureText += FString::Printf(TEXT("# Enum: %s\n\n"), *Enum->GetName());
 
-    AppendEnumEntries(Enum, Result);
+    AppendEnumEntries(Enum, StructureText);
 
-    OutText = FText::FromString(Result);
+    OutData.Structure = FText::FromString(StructureText);
+    OutData.Graph = FText::FromString(GraphText);
 #endif
 }
 
@@ -31,11 +35,8 @@ void BPR_Extractor_Enum::AppendEnumEntries(UEnum* Enum, FString& OutText)
     int32 NumEnums = Enum->NumEnums();
     for (int32 i = 0; i < NumEnums; ++i)
     {
-        // Получаем имя и значение
         FString Name = Enum->GetNameStringByIndex(i);
         int64 Value = Enum->GetValueByIndex(i);
-
-        // Можно добавить метаданные, если нужно:
         FString DisplayName = Enum->GetDisplayNameTextByIndex(i).ToString();
 
         OutText += FString::Printf(TEXT("### %d) %s = %lld (%s)\n"), i, *Name, Value, *DisplayName);
