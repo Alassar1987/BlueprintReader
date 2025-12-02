@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/BPR_Core.h"
 
 class UStaticMesh;
 
@@ -10,7 +11,10 @@ public:
 	BPR_Extractor_StaticMesh();
 	~BPR_Extractor_StaticMesh();
 
-	void ProcessStaticMesh(UObject* Object, FText& OutText);
+	void ProcessStaticMesh(
+	UObject* Object,
+	FBPR_ExtractedData& OutData
+);
 
 private:
 	void AppendHeader(UStaticMesh* Mesh, FString& OutText);

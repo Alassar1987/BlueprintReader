@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialExpression.h"
+#include "Core/BPR_Core.h"
 
 /**
  * Экстрактор для Material и MaterialInstance
@@ -15,7 +16,7 @@ public:
 	~BPR_Extractor_Material();
 
 	/** Главная точка входа */
-	void ProcessMaterial(UObject* SelectedObject, FText& OutText);
+	void ProcessMaterial(UObject* SelectedObject, FBPR_ExtractedData& OutData);
 
 private:
 	void LogMessage(const FString& Msg);

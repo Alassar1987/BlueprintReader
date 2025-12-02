@@ -47,13 +47,15 @@ bool BPR_Core::IsSupportedAsset(UObject* Object)
                 CachedType = EAssetType::Widget;
                 return true;
             }
+            
+            
         }
     }
 
     if (Cast<UMaterial>(Object)) { CachedType = EAssetType::Material; return true; }
-    if (Cast<UMaterialInstance>(Object)) { CachedType = EAssetType::MaterialInstance; return true; }
+    //if (Cast<UMaterialInstance>(Object)) { CachedType = EAssetType::MaterialInstance; return true; }
     if (Cast<UMaterialFunction>(Object)) { CachedType = EAssetType::MaterialFunction; return true; }
-    if (Cast<UMaterialFunctionInstance>(Object)) { CachedType = EAssetType::MaterialFunctionInstance; return true; }
+    //if (Cast<UMaterialFunctionInstance>(Object)) { CachedType = EAssetType::MaterialFunctionInstance; return true; }
     if (Cast<UEnum>(Object)) { CachedType = EAssetType::Enum; return true; }
     if (Cast<UScriptStruct>(Object)) { CachedType = EAssetType::Structure; return true; }
     if (Cast<UBlueprint>(Object)) { CachedType = EAssetType::InterfaceBP; return true; }
@@ -99,6 +101,54 @@ void BPR_Core::ExtractorSelector(UObject* Object)
             Extractor.ProcessEnum(Object, TextData);
             break;
         }
+        
+    case EAssetType::Structure:
+        {
+            UE_LOG(LogTemp, Log, TEXT("BPR_Core: Using Structure extractor"));
+            BPR_Extractor_Structure Extractor;
+            Extractor.ProcessStructure(Object, TextData);
+            break;
+        }
+        
+    case EAssetType::InterfaceBP:
+        {
+            UE_LOG(LogTemp, Log, TEXT("BPR_Core: Using InterfaceBP extractor"));
+            BPR_Extractor_InterfaceBP Extractor;
+            Extractor.ProcessInterfaceBP(Object, TextData);
+            break;
+        }
+    
+    case EAssetType::StaticMesh:
+        {
+            UE_LOG(LogTemp, Log, TEXT("BPR_Core: Using StaticMesh extractor"));
+            BPR_Extractor_StaticMesh Extractor;
+            Extractor.ProcessStaticMesh(Object, TextData);
+            break;
+        }
+        
+    case EAssetType::Widget:
+        {
+            UE_LOG(LogTemp, Log, TEXT("BPR_Core: Using Widget extractor"));
+            BPR_Extractor_Widget Extractor;
+            Extractor.ProcessWidget(Object, TextData);
+            break;
+        }
+        
+    case EAssetType::Material:
+        {
+            UE_LOG(LogTemp, Log, TEXT("BPR_Core: Using Material extractor"));
+            BPR_Extractor_Material Extractor;
+            Extractor.ProcessMaterial(Object, TextData);
+            break;
+        }
+        
+    case EAssetType::MaterialFunction:
+        {
+            UE_LOG(LogTemp, Log, TEXT("BPR_Core: Using MaterialFunction extractor"));
+            BPR_Extractor_MaterialFunction Extractor;
+            Extractor.ProcessMaterialFunction(Object, TextData);
+            break;
+        }
 
     default:
         UE_LOG(LogTemp, Warning, TEXT("BPR_Core: No extractor for CachedType %d"), static_cast<int32>(CachedType));
@@ -141,6 +191,48 @@ void BPR_Core::OnExtraMenuEntryClicked(UObject* Object)
             UE_LOG(LogTemp, Log, TEXT("BPR_Core: OnExtraMenuEntryClicked - Enum"));
             BPR_Extractor_Enum Extractor;
             Extractor.ProcessEnum(Object, TextData);
+            break;
+        }
+        
+    case EAssetType::Structure:
+        {
+            BPR_Extractor_Structure Extractor;
+            Extractor.ProcessStructure(Object, TextData);
+            break;
+        }
+        
+    case EAssetType::InterfaceBP:
+        {
+            BPR_Extractor_InterfaceBP Extractor;
+            Extractor.ProcessInterfaceBP(Object, TextData);
+            break;
+        }
+    
+    case EAssetType::StaticMesh:
+        {
+            BPR_Extractor_StaticMesh Extractor;
+            Extractor.ProcessStaticMesh(Object, TextData);
+            break;
+        }
+        
+    case EAssetType::Widget:
+        {
+            BPR_Extractor_Widget Extractor;
+            Extractor.ProcessWidget(Object, TextData);
+            break;
+        }
+        
+    case EAssetType::Material:
+        {
+            BPR_Extractor_Material Extractor;
+            Extractor.ProcessMaterial(Object, TextData);
+            break;
+        }
+        
+    case EAssetType::MaterialFunction:
+        {
+            BPR_Extractor_MaterialFunction Extractor;
+            Extractor.ProcessMaterialFunction(Object, TextData);
             break;
         }
 

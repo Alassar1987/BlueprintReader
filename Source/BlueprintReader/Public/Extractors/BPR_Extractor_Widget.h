@@ -6,6 +6,7 @@
 #include "Components/PanelWidget.h"
 #include "Components/TextBlock.h"
 #include "Components/Image.h"
+#include "Core/BPR_Core.h"
 
 /**
  * Экстрактор для UUserWidget
@@ -18,7 +19,7 @@ public:
 	~BPR_Extractor_Widget();
 
 	/** Главная точка входа */
-	void ProcessWidget(UObject* SelectedObject, FText& OutText);
+	void ProcessWidget(UObject* SelectedObject, FBPR_ExtractedData& OutData);
 
 private:
 	void LogMessage(const FString& Msg);

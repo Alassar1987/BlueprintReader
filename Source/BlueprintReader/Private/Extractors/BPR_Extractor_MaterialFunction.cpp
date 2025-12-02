@@ -22,40 +22,52 @@
 BPR_Extractor_MaterialFunction::BPR_Extractor_MaterialFunction() {}
 BPR_Extractor_MaterialFunction::~BPR_Extractor_MaterialFunction() {}
 
-void BPR_Extractor_MaterialFunction::ProcessMaterialFunction(UObject* SelectedObject, FText& OutText)
+void BPR_Extractor_MaterialFunction::ProcessMaterialFunction(UObject* SelectedObject, FBPR_ExtractedData& OutData)
 {
 #if WITH_EDITOR
     if (!SelectedObject)
     {
         LogError(TEXT("SelectedObject is null!"));
-        OutText = FText::FromString("Error: SelectedObject is null.");
+        OutData.Structure = FText::FromString("Error: SelectedObject is null.");
+        OutData.Graph = FText::FromString("Error: SelectedObject is null.");
         return;
     }
 
-    FString Result;
+    FString TmpTextStructure;
+    FString TmpTextExpressions;
 
     if (IsMaterialFunction(SelectedObject))
     {
         UMaterialFunction* Func = Cast<UMaterialFunction>(SelectedObject);
-        Result += FString::Printf(TEXT("# Material Function Export: %s\n\n"), *Func->GetName());
-        ExtractMaterialFunction(Func, Result);
+        TmpTextStructure += FString::Printf(TEXT("# Material Function Export: %s\n\n"), *Func->GetName());
+
+        // Структура (inputs + outputs)
+        ExtractMaterialFunction(Func, TmpTextStructure);
+
+        // Граф (Expression-ноды)
+        AppendFunctionExpressions(Func, TmpTextExpressions);
     }
     else if (IsMaterialFunctionInstance(SelectedObject))
     {
         UMaterialFunctionInstance* Instance = Cast<UMaterialFunctionInstance>(SelectedObject);
-        Result += FString::Printf(TEXT("# Material Function Instance Export: %s\n\n"), *Instance->GetName());
-        ExtractMaterialFunctionInstance(Instance, Result);
+        TmpTextStructure += FString::Printf(TEXT("# Material Function Instance Export: %s\n\n"), *Instance->GetName());
+
+        ExtractMaterialFunctionInstance(Instance, TmpTextStructure);
+
+        // Графа для экземпляра функции нет
     }
     else
     {
         LogWarning(TEXT("Selected object is not a Material Function or Material Function Instance."));
-        OutText = FText::FromString("Warning: Selected object is not a Material Function or Material Function Instance.");
-        return;
+        TmpTextStructure = TEXT("Warning: Selected object is not a Material Function or Material Function Instance.");
+        TmpTextExpressions = TmpTextStructure;
     }
 
-    OutText = FText::FromString(Result);
+    OutData.Structure = FText::FromString(TmpTextStructure);
+    OutData.Graph = FText::FromString(TmpTextExpressions);
 #endif
 }
+
 
 // ----------------------------------------------------------
 // Проверки типов

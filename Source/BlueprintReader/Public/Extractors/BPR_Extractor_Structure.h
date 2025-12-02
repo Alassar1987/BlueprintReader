@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/BPR_Core.h" // FBPR_ExtractedData
 
 /**
  * Экстрактор для структур (UScriptStruct)
@@ -12,7 +13,7 @@ public:
 	~BPR_Extractor_Structure();
 
 	/** Основной метод извлечения данных из структуры */
-	void ProcessStructure(UObject* Object, FText& OutText);
+	void ProcessStructure(UObject* Object, FBPR_ExtractedData& OutData);
 
 private:
 	/** Помогает формировать текст Markdown для конкретного UScriptStruct */

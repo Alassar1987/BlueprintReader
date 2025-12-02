@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/BPR_Core.h"
 
 /**
  * Экстрактор для Blueprint Interface
@@ -12,7 +13,11 @@ public:
 	~BPR_Extractor_InterfaceBP();
 
 	/** Основной метод извлечения данных */
-	void ProcessInterfaceBP(UObject* Object, FText& OutText);
+	void ProcessInterfaceBP(
+	UObject* Object,
+	FBPR_ExtractedData& OutData
+);
+
 
 private:
 

@@ -3,34 +3,97 @@
 #include "Materials/MaterialExpressionTextureSample.h"
 #include "Engine/Texture.h"
 #include "Engine/EngineTypes.h" // FMaterialShadingModelField
+#include "Materials/MaterialInstanceConstant.h"
 
 BPR_Extractor_Material::BPR_Extractor_Material() {}
 BPR_Extractor_Material::~BPR_Extractor_Material() {}
 
-void BPR_Extractor_Material::ProcessMaterial(UObject* SelectedObject, FText& OutText)
+void BPR_Extractor_Material::ProcessMaterial(UObject* SelectedObject, FBPR_ExtractedData& OutData)
 {
-	if (!SelectedObject)
-	{
-		LogError(TEXT("SelectedObject is null!"));
-		OutText = FText::FromString("Error: SelectedObject is null.");
-		return;
-	}
+#if WITH_EDITOR
+    if (!SelectedObject)
+    {
+        LogError(TEXT("SelectedObject is null!"));
+        OutData.Structure = FText::FromString("Error: SelectedObject is null.");
+        OutData.Graph = FText::FromString("Error: SelectedObject is null.");
+        return;
+    }
 
-	UMaterial* Material = Cast<UMaterial>(SelectedObject);
-	if (!Material)
-	{
-		LogWarning(TEXT("Selected object is not a Material."));
-		OutText = FText::FromString("Warning: Selected object is not a Material.");
-		return;
-	}
+    FString TmpTextStructure;
+    FString TmpTextGraph;
 
-	FString TmpText = FString::Printf(TEXT("# Material Export: %s\n\n"), *Material->GetName());
+    // Сначала проверяем обычный материал
+    if (UMaterial* Material = Cast<UMaterial>(SelectedObject))
+    {
+        TmpTextStructure = FString::Printf(TEXT("# Material Structure: %s\n\n"), *Material->GetName());
+        TmpTextGraph     = FString::Printf(TEXT("# Material Graph: %s\n\n"), *Material->GetName());
 
-	AppendMaterialProperties(Material, TmpText);
-	AppendMaterialExpressions(Material, TmpText);
+        AppendMaterialProperties(Material, TmpTextStructure);
+        AppendMaterialExpressions(Material, TmpTextGraph);
+    }
+    // Если инстанс материала
+    else if (UMaterialInstance* MatInst = Cast<UMaterialInstance>(SelectedObject))
+    {
+        TmpTextStructure = FString::Printf(TEXT("# Material Instance Structure: %s\n\n"), *MatInst->GetName());
+        TmpTextGraph     = FString::Printf(TEXT("# Material Instance Graph: %s\n\n"), *MatInst->GetName());
 
-	OutText = FText::FromString(TmpText);
+        // Структура инстанса = родитель + переопределенные параметры
+    	if (MatInst->Parent)
+    	{
+    		if (UMaterial* ParentMat = Cast<UMaterial>(MatInst->Parent.Get()))
+    		{
+    			TmpTextStructure += FString::Printf(TEXT("**Parent Material:** %s\n\n"), *ParentMat->GetName());
+    			AppendMaterialProperties(ParentMat, TmpTextStructure);
+    		}
+    	}
+
+
+        // Параметры инстанса
+        if (MatInst->ScalarParameterValues.Num() > 0 || MatInst->VectorParameterValues.Num() > 0 || MatInst->TextureParameterValues.Num() > 0)
+        {
+            TmpTextStructure += TEXT("\n## Parameter Overrides\n\n");
+
+            for (const FScalarParameterValue& Param : MatInst->ScalarParameterValues)
+            {
+                FString Name = Param.ParameterInfo.Name.IsNone() ? TEXT("Unnamed") : Param.ParameterInfo.Name.ToString();
+                TmpTextStructure += FString::Printf(TEXT("- %s: %.6g\n"), *Name, Param.ParameterValue);
+            }
+
+            for (const FVectorParameterValue& Param : MatInst->VectorParameterValues)
+            {
+                const FLinearColor& V = Param.ParameterValue;
+                FString Name = Param.ParameterInfo.Name.IsNone() ? TEXT("Unnamed") : Param.ParameterInfo.Name.ToString();
+                TmpTextStructure += FString::Printf(TEXT("- %s: (%.6g, %.6g, %.6g, %.6g)\n"), *Name, V.R, V.G, V.B, V.A);
+            }
+
+            for (const FTextureParameterValue& Param : MatInst->TextureParameterValues)
+            {
+                FString Name = Param.ParameterInfo.Name.IsNone() ? TEXT("Unnamed") : Param.ParameterInfo.Name.ToString();
+                FString TexName = Param.ParameterValue ? Param.ParameterValue->GetName() : TEXT("None");
+                TmpTextStructure += FString::Printf(TEXT("- %s: %s\n"), *Name, *TexName);
+            }
+        }
+        else
+        {
+            TmpTextStructure += TEXT("_No parameter overrides found._\n");
+        }
+
+        // Графа собственного нет, можно оставить пустым или указать на родителя
+        TmpTextGraph += TEXT("_MaterialInstance has no own expressions. Graph is in parent material._\n");
+    }
+    else
+    {
+        LogWarning(TEXT("Selected object is not a Material or MaterialInstance."));
+        TmpTextStructure = TEXT("Warning: Selected object is not a Material or MaterialInstance.");
+        TmpTextGraph     = TEXT("Warning: Selected object is not a Material or MaterialInstance.");
+    }
+
+    OutData.Structure = FText::FromString(TmpTextStructure);
+    OutData.Graph     = FText::FromString(TmpTextGraph);
+#endif
 }
+
+
 
 //--------------------
 // Логирование

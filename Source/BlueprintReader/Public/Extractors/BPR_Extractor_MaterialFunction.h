@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/BPR_Core.h"
 
 class UMaterialFunctionInterface;
 class UMaterialFunction;
@@ -17,7 +18,7 @@ public:
 	~BPR_Extractor_MaterialFunction();
 
 	/** Главный метод: превращает Material Function в Markdown */
-	void ProcessMaterialFunction(UObject* SelectedObject, FText& OutText);
+	void ProcessMaterialFunction(UObject* SelectedObject, FBPR_ExtractedData& OutData);
 
 private:
 

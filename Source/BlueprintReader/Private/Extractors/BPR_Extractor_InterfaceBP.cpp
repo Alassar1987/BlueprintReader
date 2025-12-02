@@ -13,7 +13,11 @@ BPR_Extractor_InterfaceBP::~BPR_Extractor_InterfaceBP()
 {
 }
 
-void BPR_Extractor_InterfaceBP::ProcessInterfaceBP(UObject* Object, FText& OutText)
+void BPR_Extractor_InterfaceBP::ProcessInterfaceBP(
+    UObject* Object,
+    FBPR_ExtractedData& OutData
+)
+
 {
 #if WITH_EDITOR
 	FString Result;
@@ -21,7 +25,7 @@ void BPR_Extractor_InterfaceBP::ProcessInterfaceBP(UObject* Object, FText& OutTe
 	UBlueprint* BP = Cast<UBlueprint>(Object);
 	if (!BP || BP->BlueprintType != BPTYPE_Interface)
 	{
-		OutText = FText::FromString("Object is not a Blueprint Interface.");
+		OutData.Structure = FText::FromString("Object is not a Blueprint Interface.");
 		return;
 	}
 
@@ -36,7 +40,7 @@ void BPR_Extractor_InterfaceBP::ProcessInterfaceBP(UObject* Object, FText& OutTe
 	// Добавляем список функций интерфейса
 	AppendInterfaceFunctions(BP, Result);
 
-	OutText = FText::FromString(Result);
+	OutData.Structure = FText::FromString(Result);
 #endif
 }
 

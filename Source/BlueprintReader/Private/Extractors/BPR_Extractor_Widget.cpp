@@ -4,13 +4,13 @@
 BPR_Extractor_Widget::BPR_Extractor_Widget() {}
 BPR_Extractor_Widget::~BPR_Extractor_Widget() {}
 
-void BPR_Extractor_Widget::ProcessWidget(UObject* SelectedObject, FText& OutText)
+void BPR_Extractor_Widget::ProcessWidget(UObject* SelectedObject, FBPR_ExtractedData& OutData)
 {
 #if WITH_EDITOR
     if (!SelectedObject)
     {
         LogError(TEXT("SelectedObject is null!"));
-        OutText = FText::FromString("Error: SelectedObject is null.");
+        OutData.Structure = FText::FromString("Error: SelectedObject is null.");
         return;
     }
 
@@ -33,7 +33,7 @@ void BPR_Extractor_Widget::ProcessWidget(UObject* SelectedObject, FText& OutText
     if (!Widget)
     {
         LogWarning(TEXT("Selected object is not a UserWidget."));
-        OutText = FText::FromString("Warning: Selected object is not a UserWidget.");
+        OutData.Structure = FText::FromString("Warning: Selected object is not a UserWidget.");
         return;
     }
 
@@ -48,7 +48,7 @@ void BPR_Extractor_Widget::ProcessWidget(UObject* SelectedObject, FText& OutText
         TmpText += TEXT("No RootWidget found.\n");
     }
 
-    OutText = FText::FromString(TmpText);
+    OutData.Structure = FText::FromString(TmpText);
 #endif
 }
 

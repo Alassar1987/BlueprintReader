@@ -5,7 +5,11 @@
 BPR_Extractor_StaticMesh::BPR_Extractor_StaticMesh() {}
 BPR_Extractor_StaticMesh::~BPR_Extractor_StaticMesh() {}
 
-void BPR_Extractor_StaticMesh::ProcessStaticMesh(UObject* Object, FText& OutText)
+void BPR_Extractor_StaticMesh::ProcessStaticMesh(
+    UObject* Object,
+    FBPR_ExtractedData& OutData
+)
+
 {
 #if WITH_EDITOR
     FString Result;
@@ -13,7 +17,7 @@ void BPR_Extractor_StaticMesh::ProcessStaticMesh(UObject* Object, FText& OutText
     UStaticMesh* Mesh = Cast<UStaticMesh>(Object);
     if (!Mesh)
     {
-        OutText = FText::FromString(TEXT("Object is not a Static Mesh."));
+        OutData.Structure = FText::FromString(TEXT("Object is not a Static Mesh."));
         return;
     }
 
@@ -24,7 +28,7 @@ void BPR_Extractor_StaticMesh::ProcessStaticMesh(UObject* Object, FText& OutText
     AppendLODs(Mesh, Result);
     AppendSockets(Mesh, Result);
 
-    OutText = FText::FromString(Result);
+    OutData.Structure = FText::FromString(Result);
 #endif
 }
 
