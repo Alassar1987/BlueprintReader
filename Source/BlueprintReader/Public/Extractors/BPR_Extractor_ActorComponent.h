@@ -37,11 +37,28 @@ private:
 	void AppendStructFields(FStructProperty* StructProp, FString& OutText, int32 Indent = 0);
 	void AppendReplicationInfo(UClass* Class, FString& OutText);
 	void AppendGraphs(UBlueprint* Blueprint, FString& OutText);
-	void AppendGraphSequence(UEdGraph* Graph, FString& OutText);
-	void ProcessNodeSequence(UEdGraphNode* Node, int32 IndentLevel, TSet<UEdGraphNode*>& Visited, FString& OutText);
+	
+	void AppendGraphSequence(
+	UEdGraph* Graph, 
+	FString& OutExecText,
+	FString& OutDataText
+	);
+	
+	void ProcessNodeSequence(
+	UEdGraphNode* Node, 
+	int32 IndentLevel, 
+	TSet<UEdGraphNode*>& Visited, 
+	FString& OutExecText,
+	FString& OutDataText
+	);
+
 	FString GetFunctionSignature(UEdGraph* Graph);
 	FString GetMacroSignature(UEdGraph* Graph);
 	FString GetReadableNodeName(UEdGraphNode* Node);
 	FString GetPinDetails(UEdGraphPin* Pin);
+	
+	FString GetPinDisplayName(UEdGraphPin* Pin);
+
+	
 	bool IsUserVariable(FProperty* Property);
 };
