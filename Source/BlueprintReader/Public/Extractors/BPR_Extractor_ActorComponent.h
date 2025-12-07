@@ -17,6 +17,9 @@ class UEdGraphPin;
 class BLUEPRINTREADER_API BPR_Extractor_ActorComponent
 {
 public:
+	
+	BPR_Extractor_ActorComponent();
+	~BPR_Extractor_ActorComponent();
 	// -------------------------------
 	// Главная точка входа
 	// -------------------------------

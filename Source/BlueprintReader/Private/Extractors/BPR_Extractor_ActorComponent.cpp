@@ -15,6 +15,8 @@
 #include "K2Node_VariableGet.h"
 #include "K2Node_VariableSet.h"
 #include "Net/UnrealNetwork.h"
+#include "K2Node_Knot.h"
+
 
 BPR_Extractor_ActorComponent::BPR_Extractor_ActorComponent() {}
 BPR_Extractor_ActorComponent::~BPR_Extractor_ActorComponent() {}
@@ -417,24 +419,32 @@ void BPR_Extractor_ActorComponent::ProcessNodeSequence(
 {
     if (!Node || Visited.Contains(Node))
     {
-        if (Node) OutExecText += FString::Printf(TEXT("%*s[Loop Detected: %s]\n"), IndentLevel * 2, TEXT(""), *Node->GetName());
+        if (Node)
+            OutExecText += FString::Printf(TEXT("%*s[Loop Detected: %s]\n"), IndentLevel * 2, TEXT(""), *Node->GetName());
         return;
     }
 
     Visited.Add(Node);
 
+    // ----------------------------
+    // 1. Получаем читаемое имя узла
+    // ----------------------------
     FString NodeTitle = GetReadableNodeName(Node);
     if (!Node->NodeComment.IsEmpty())
         NodeTitle += FString::Printf(TEXT(" // %s"), *Node->NodeComment);
 
-    // 1. Exec-flow
+    // ----------------------------
+    // 2. Exec-flow (как раньше)
+    // ----------------------------
     OutExecText += FString::Printf(TEXT("%*s- %s\n"), IndentLevel * 2, TEXT(""), *NodeTitle);
 
-    // 2. Data-flow
+    // ----------------------------
+    // 3. Data-flow (все non-exec пины)
+    // ----------------------------
     for (UEdGraphPin* Pin : Node->Pins)
     {
-        if (!Pin || Pin->Direction != EGPD_Output || Pin->LinkedTo.Num() == 0) continue;
-        if (Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec) continue;
+        if (!Pin) continue;
+        if (Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec) continue; // пропускаем exec для data-flow
 
         FString PinName = GetPinDisplayName(Pin);
 
@@ -445,16 +455,26 @@ void BPR_Extractor_ActorComponent::ProcessNodeSequence(
             FString TargetNodeName = GetReadableNodeName(LinkedTo->GetOwningNode());
             FString TargetPinName = GetPinDisplayName(LinkedTo);
 
-            OutDataText += FString::Printf(TEXT("  [data] %s.%s → %s.%s\n"), *NodeTitle, *PinName, *TargetNodeName, *TargetPinName);
+            // Добавляем special handling для Reroute-ноды
+            if (LinkedTo->GetOwningNode()->IsA(UK2Node_Knot::StaticClass()))
+            {
+                // можно пометить как reroute
+                TargetNodeName = TEXT("Reroute") + TargetNodeName;
+            }
+
+            OutDataText += FString::Printf(TEXT("  [data] %s.%s → %s.%s\n"), 
+                *NodeTitle, *PinName, *TargetNodeName, *TargetPinName);
         }
     }
 
-    // 3. Recursion via exec
+    // ----------------------------
+    // 4. Рекурсия по exec-пинам
+    // ----------------------------
     for (UEdGraphPin* Pin : Node->Pins)
     {
-        if (!Pin || Pin->Direction != EGPD_Output || Pin->PinType.PinCategory != UEdGraphSchema_K2::PC_Exec) continue;
+        if (!Pin || Pin->PinType.PinCategory != UEdGraphSchema_K2::PC_Exec || Pin->LinkedTo.Num() == 0) continue;
 
-        FString Label = Pin->PinFriendlyName.IsEmpty() ? "then" : Pin->PinFriendlyName.ToString();
+        FString Label = Pin->PinFriendlyName.IsEmpty() ? TEXT("then") : Pin->PinFriendlyName.ToString();
 
         for (UEdGraphPin* LinkedPin : Pin->LinkedTo)
         {
@@ -464,7 +484,14 @@ void BPR_Extractor_ActorComponent::ProcessNodeSequence(
             ProcessNodeSequence(LinkedPin->GetOwningNode(), IndentLevel + 1, Visited, OutExecText, OutDataText);
         }
     }
+
+    // ----------------------------
+    // 5. Вычислительные ноды без exec
+    // ----------------------------
+    // Можно здесь отдельно отметить, если Node имеет только data-пины и реально что-то считает
+    // (например Arithmetic, Logical, Cast). Их можно добавлять в OutDataText как отдельные вычисления
 }
+
 
 //---------------------------------------------
 // Node & Pin Helpers
