@@ -1,57 +1,76 @@
 #pragma once
 
-//==============================================================================
-//  BPR_Extractor_Actor
-//==============================================================================
-//
-//  Экстрактор для Blueprint на основе AActor.
-//  Сбор переменных, компонентов, графов и последовательностей узлов.
-//  Возвращает результат в FBPR_ExtractedData (Structure и Graph).
-//
-//==============================================================================
-
 #include "CoreMinimal.h"
-#include "Core/BPR_Core.h" // FBPR_ExtractedData
+#include "Core/BPR_Core.h"
 
+// Forward declaration достаточна
+class UActorComponent;
 class UBlueprint;
 class UEdGraph;
 class UEdGraphNode;
+class UEdGraphPin;
+
+
+/**
+ * Экстрактор для Actor Blueprint
+ */
 
 class BLUEPRINTREADER_API BPR_Extractor_Actor
 {
+
 public:
     BPR_Extractor_Actor();
     ~BPR_Extractor_Actor();
 
-    /** Главная точка входа: обработка выбранного ассета */
     void ProcessActor(UObject* SelectedObject, FBPR_ExtractedData& OutData);
 
 private:
-    // Логирование
+    // ======================
+    // Logging
+    // ======================
     void LogMessage(const FString& Msg);
     void LogWarning(const FString& Msg);
     void LogError(const FString& Msg);
 
-    // Переменные Blueprint
+    // ======================
+    // Class info / Blueprint info
+    // ======================
+    void AppendClassInfo(UBlueprint* Blueprint, FString& OutText);
+    void AppendBlueprintInfo(UBlueprint* Blueprint, FString& OutText);
+    void AppendReplicationInfo(UClass* Class, FString& OutText);
+
+    // ======================
+    // Variables
+    // ======================
     void AppendVariables(UBlueprint* Blueprint, FString& OutText);
     FString GetPropertyDefaultValue(FProperty* Property, UObject* Object);
+    FString GetPropertyValueAsString(FProperty* Property, UObject* Object);
+    FString GetPropertyTypeDetailed(FProperty* Property);
+    bool IsUserVariable(FProperty* Property);
+    void AppendStructFields(FStructProperty* StructProp, FString& OutText, int32 Indent = 0);
 
-    // Actor-specific: компоненты, теги, класс-инфа
+    // ======================
+    // Components & Tags
+    // ======================
     void AppendActorComponents(UBlueprint* Blueprint, FString& OutText);
     void AppendActorTags(UBlueprint* Blueprint, FString& OutText);
-    void AppendClassInfo(UBlueprint* Blueprint, FString& OutText);
+    FString FormatComponentInfo(UActorComponent* Component);
 
-    // Обработка графов
+    // ======================
+    // Graphs
+    // ======================
     void AppendGraphs(UBlueprint* Blueprint, FString& OutText);
-    void ProcessEventGraph(UEdGraph* Graph, FString& OutText);
-    void ProcessFunctionGraph(UEdGraph* Graph, FString& OutText);
-    void ProcessMacroGraph(UEdGraph* Graph, FString& OutText);
+    void AppendGraphSequence(UEdGraph* Graph, FString& OutExecText, FString& OutDataText);
+    void ProcessNodeSequence(UEdGraphNode* Node, int32 IndentLevel, TSet<UEdGraphNode*>& Visited, FString& OutExecText, FString& OutDataText);
+
     FString GetFunctionSignature(UEdGraph* Graph);
+    FString GetMacroSignature(UEdGraph* Graph);
 
-    // Последовательность узлов
-    void AppendGraphSequence(UEdGraph* Graph, FString& OutText);
-    void ProcessNodeSequence(UEdGraphNode* Node, int32 IndentLevel, TSet<UEdGraphNode*>& Visited, FString& OutText);
-
-    // Вспомогательные
     FString GetReadableNodeName(UEdGraphNode* Node);
+    bool IsComputationalNode(UEdGraphNode* Node);
+    bool HasExecInput(UEdGraphNode* Node);
+
+    FString GetPinDetails(UEdGraphPin* Pin);
+    FString GetPinDisplayName(UEdGraphPin* Pin);
+    FString CleanName(const FString& RawName);
 };

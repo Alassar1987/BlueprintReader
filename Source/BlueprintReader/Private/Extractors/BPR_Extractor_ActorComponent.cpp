@@ -22,8 +22,6 @@
 #include "K2Node_DynamicCast.h"
 #include "K2Node_CastByteToEnum.h"
 #include "K2Node_CallFunction.h"
-#include "K2Node_VariableGet.h"
-#include "K2Node_VariableSet.h"
 #include "K2Node_Knot.h"
 #include "K2Node_DynamicCast.h"
 #include "K2Node_Select.h"
