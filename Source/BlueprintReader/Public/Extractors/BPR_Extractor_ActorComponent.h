@@ -92,4 +92,11 @@ private:
 
 	/** Определяет, является ли свойство пользовательской переменной (не системной) */
 	bool IsUserVariable(FProperty* Property);
+	
+	/** Проверяет, является ли нода вычислительной (data-flow), без exec */
+	bool IsComputationalNode(UEdGraphNode* Node);
+
+	/** Проверяет, есть ли у ноды Exec-вход */
+	bool HasExecInput(UEdGraphNode* Node);
+
 };
