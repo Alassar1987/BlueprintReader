@@ -92,8 +92,8 @@ void BPR_Extractor_ActorComponent::AppendVariables(UBlueprint* Blueprint, FStrin
     if (!Blueprint || !Blueprint->GeneratedClass) return;
 
     OutText += TEXT("## Custom Variables\n");
-    OutText += TEXT("| Name | Type | Default Value | Flags | Description |\n");
-    OutText += TEXT("|------|------|---------------|-------|-------------|\n");
+    OutText += TEXT("| Name | Type | Default Value | Flags | Category | Description |\n");
+    OutText += TEXT("|------|------|---------------|-------|----------|-------------|\n");
 
     UClass* Class = Blueprint->GeneratedClass;
     UObject* CDO = Class->GetDefaultObject();
@@ -103,10 +103,11 @@ void BPR_Extractor_ActorComponent::AppendVariables(UBlueprint* Blueprint, FStrin
         FProperty* Property = *PropIt;
         if (!Property || !IsUserVariable(Property)) continue;
 
-        FString PropName = Property->GetName();
+        FString PropName = CleanName(Property->GetName());
         FString PropType = GetPropertyTypeDetailed(Property);
         FString DefaultVal = GetPropertyDefaultValue(Property, CDO);
         FString Description = Property->GetToolTipText().ToString();
+        FString Category = Property->GetMetaData(TEXT("Category"));
 
         FString Flags;
         if (Property->HasAnyPropertyFlags(CPF_Edit)) Flags += TEXT("Edit ");
@@ -114,8 +115,8 @@ void BPR_Extractor_ActorComponent::AppendVariables(UBlueprint* Blueprint, FStrin
         if (Property->HasAnyPropertyFlags(CPF_BlueprintReadOnly)) Flags += TEXT("BlueprintReadOnly ");
         Flags = Flags.TrimEnd();
 
-        OutText += FString::Printf(TEXT("| %s | %s | %s | %s | %s |\n"),
-            *PropName, *PropType, *DefaultVal, *Flags, *Description);
+        OutText += FString::Printf(TEXT("| %s | %s | %s | %s | %s | %s |\n"),
+            *PropName, *PropType, *DefaultVal, *Flags, *Category, *Description);
 
         if (FStructProperty* StructProp = CastField<FStructProperty>(Property))
         {
@@ -126,6 +127,7 @@ void BPR_Extractor_ActorComponent::AppendVariables(UBlueprint* Blueprint, FStrin
 
     OutText += TEXT("\n");
 }
+
 
 FString BPR_Extractor_ActorComponent::GetPropertyTypeDetailed(FProperty* Property)
 {
@@ -171,7 +173,7 @@ void BPR_Extractor_ActorComponent::AppendStructFields(FStructProperty* StructPro
     for (TFieldIterator<FProperty> FieldIt(Struct); FieldIt; ++FieldIt)
     {
         FProperty* Field = *FieldIt;
-        FString FieldName = Field->GetName();
+        FString FieldName = CleanName(Field->GetName());
         FString FieldType = GetPropertyTypeDetailed(Field);
         FString Desc = Field->GetToolTipText().ToString();
 
@@ -214,7 +216,7 @@ void BPR_Extractor_ActorComponent::AppendReplicationInfo(UClass* Class, FString&
         FProperty* Property = *PropIt;
         if (Property->HasAnyPropertyFlags(CPF_Net))
         {
-            FString PropName = Property->GetName();
+            FString PropName = CleanName(Property->GetName());
             FString RepNotify = Property->GetMetaData(TEXT("ReplicatedUsing"));
             FString Condition = Property->GetMetaData(TEXT("RepCondition"));
 
@@ -305,6 +307,13 @@ FString BPR_Extractor_ActorComponent::GetFunctionSignature(UEdGraph* Graph)
     UK2Node_FunctionResult* Result = FindFunctionResultNodeInGraph(Graph);
 
     TArray<FString> Inputs, Outputs;
+
+    auto GetPinLabel = [](UEdGraphPin* Pin)
+    {
+        const FString Display = Pin->GetDisplayName().ToString();
+        return Display.IsEmpty() ? Pin->PinName.ToString() : Display;
+    };
+
     if (Entry)
     {
         for (UEdGraphPin* Pin : Entry->Pins)
@@ -312,7 +321,9 @@ FString BPR_Extractor_ActorComponent::GetFunctionSignature(UEdGraph* Graph)
             if (!Pin) continue;
             if (Pin->Direction == EGPD_Output && Pin->PinType.PinCategory != UEdGraphSchema_K2::PC_Exec)
             {
-                Inputs.Add(FString::Printf(TEXT("%s: %s"), *Pin->PinName.ToString(), *Pin->PinType.PinCategory.ToString()));
+                Inputs.Add(FString::Printf(TEXT("%s: %s"),
+                    *GetPinLabel(Pin),
+                    *Pin->PinType.PinCategory.ToString()));
             }
         }
     }
@@ -324,34 +335,60 @@ FString BPR_Extractor_ActorComponent::GetFunctionSignature(UEdGraph* Graph)
             if (!Pin) continue;
             if (Pin->Direction == EGPD_Input && Pin->PinType.PinCategory != UEdGraphSchema_K2::PC_Exec)
             {
-                Outputs.Add(FString::Printf(TEXT("%s: %s"), *Pin->PinName.ToString(), *Pin->PinType.PinCategory.ToString()));
+                Outputs.Add(FString::Printf(TEXT("%s: %s"),
+                    *GetPinLabel(Pin),
+                    *Pin->PinType.PinCategory.ToString()));
             }
         }
     }
 
-    return FString::Printf(TEXT("Inputs: (%s) Outputs: (%s)"), *FString::Join(Inputs, TEXT(", ")), *FString::Join(Outputs, TEXT(", ")));
+    return FString::Printf(TEXT("Inputs: (%s) Outputs: (%s)"),
+        *FString::Join(Inputs, TEXT(", ")),
+        *FString::Join(Outputs, TEXT(", ")));
 }
+
 
 FString BPR_Extractor_ActorComponent::GetMacroSignature(UEdGraph* Graph)
 {
     if (!Graph) return TEXT("None");
 
     TArray<FString> Inputs, Outputs;
+
+    auto GetPinLabel = [](UEdGraphPin* Pin)
+    {
+        const FString Display = Pin->GetDisplayName().ToString();
+        return Display.IsEmpty() ? Pin->PinName.ToString() : Display;
+    };
+
     for (UEdGraphNode* Node : Graph->Nodes)
     {
-        if (UK2Node_Tunnel* Tunnel = Cast<UK2Node_Tunnel>(Node))
+        UK2Node_Tunnel* Tunnel = Cast<UK2Node_Tunnel>(Node);
+        if (!Tunnel) continue;
+
+        for (UEdGraphPin* Pin : Tunnel->Pins)
         {
-            for (UEdGraphPin* Pin : Tunnel->Pins)
-            {
-                if (!Pin) continue;
-                FString PinDesc = FString::Printf(TEXT("%s: %s"), *Pin->PinName.ToString(), *Pin->PinType.PinCategory.ToString());
-                if (Pin->Direction == EGPD_Input) Inputs.Add(PinDesc);
-                else Outputs.Add(PinDesc);
-            }
+            if (!Pin) continue;
+
+            FString PinDesc = FString::Printf(
+                TEXT("%s: %s"),
+                *GetPinLabel(Pin),
+                *Pin->PinType.PinCategory.ToString()
+            );
+
+            if (Pin->Direction == EGPD_Input)
+                Inputs.Add(PinDesc);
+            else
+                Outputs.Add(PinDesc);
         }
     }
-    return FString::Printf(TEXT("Inputs: (%s) Outputs: (%s)"), *FString::Join(Inputs, TEXT(", ")), *FString::Join(Outputs, TEXT(", ")));
+
+    return FString::Printf(
+        TEXT("Inputs: (%s) Outputs: (%s)"),
+        *FString::Join(Inputs, TEXT(", ")),
+        *FString::Join(Outputs, TEXT(", "))
+    );
 }
+
 
 //---------------------------------------------
 // Graph Sequence
@@ -497,4 +534,20 @@ FString BPR_Extractor_ActorComponent::GetPinDisplayName(UEdGraphPin* Pin)
     if (!Pin->PinFriendlyName.IsEmpty()) return Pin->PinFriendlyName.ToString();
     if (!Pin->PinName.IsNone()) return Pin->PinName.ToString();
     return TEXT("Unknown");
+}
+
+FString BPR_Extractor_ActorComponent::CleanName(const FString& RawName)
+{
+    FString Result = RawName;
+    int32 UnderscoreIndex;
+    if (RawName.FindLastChar('_', UnderscoreIndex))
+    {
+        FString Tail = RawName.Mid(UnderscoreIndex + 1);
+        // Если хвост похож на GUID (32+ символов), обрезаем
+        if (Tail.Len() >= 32)
+        {
+            Result = RawName.Left(UnderscoreIndex);
+        }
+    }
+    return Result;
 }

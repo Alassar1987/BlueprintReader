@@ -58,6 +58,7 @@ private:
 	FString GetPinDetails(UEdGraphPin* Pin);
 	
 	FString GetPinDisplayName(UEdGraphPin* Pin);
+	FString CleanName(const FString& RawName);
 
 	
 	bool IsUserVariable(FProperty* Property);
