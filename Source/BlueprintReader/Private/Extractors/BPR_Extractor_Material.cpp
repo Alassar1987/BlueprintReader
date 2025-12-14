@@ -1,508 +1,505 @@
 #include "Extractors/BPR_Extractor_Material.h"
-#include "Materials/Material.h"
-#include "Materials/MaterialInstance.h"
-#include "Materials/MaterialInstanceConstant.h"
+#include "Core/BPR_Core.h"
+#include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionTextureSample.h"
 #include "Materials/MaterialExpressionScalarParameter.h"
 #include "Materials/MaterialExpressionVectorParameter.h"
-#include "Materials/MaterialExpressionTextureObjectParameter.h"
 #include "Materials/MaterialExpressionConstant.h"
-#include "Engine/Texture.h"
-#include "Engine/EngineTypes.h"
+#include "MaterialExpressionIO.h"
+#include "Materials/MaterialExpressionStaticSwitchParameter.h" // для StaticSwitch
+#include "UObject/UnrealType.h" // FProperty, FStructProperty
 
-//==============================================================================
-// Constructor / Destructor
-//==============================================================================
 BPR_Extractor_Material::BPR_Extractor_Material() {}
 BPR_Extractor_Material::~BPR_Extractor_Material() {}
 
-//==============================================================================
-// Main entry point
-//==============================================================================
 void BPR_Extractor_Material::ProcessMaterial(UObject* SelectedObject, FBPR_ExtractedData& OutData)
 {
-    if (!SelectedObject)
-    {
-        LogError(TEXT("SelectedObject is null!"));
-        OutData.Structure = FText::FromString("Error: SelectedObject is null.");
-        OutData.Graph = FText::FromString("Error: SelectedObject is null.");
-        return;
-    }
+	if (!SelectedObject)
+	{
+		LogError(TEXT("SelectedObject is null!"));
+		OutData.Structure = FText::FromString("Error: SelectedObject is null.");
+		OutData.Graph = FText::FromString("Error: SelectedObject is null.");
+		return;
+	}
 
-    FString TmpStructure;
-    FString TmpGraph;
+	UMaterial* Material = Cast<UMaterial>(SelectedObject);
+	UMaterialInstance* MaterialInstance = Cast<UMaterialInstance>(SelectedObject);
 
-    // Обработка базового материала
-    if (UMaterial* Material = Cast<UMaterial>(SelectedObject))
-    {
-        TmpStructure = FString::Printf(TEXT("# Material Structure: %s\n\n"), *Material->GetName());
-        TmpGraph = FString::Printf(TEXT("# Material Graph: %s\n\n"), *Material->GetName());
-        
-        ProcessMaterialAsset(Material, TmpStructure, TmpGraph);
-    }
-    // Обработка инстанса материала
-    else if (UMaterialInstance* MatInst = Cast<UMaterialInstance>(SelectedObject))
-    {
-        TmpStructure = FString::Printf(TEXT("# Material Instance Structure: %s\n\n"), *MatInst->GetName());
-        TmpGraph = FString::Printf(TEXT("# Material Instance Graph: %s\n\n"), *MatInst->GetName());
-        
-        ProcessMaterialInstanceAsset(MatInst, TmpStructure, TmpGraph);
-    }
-    else
-    {
-        LogWarning(TEXT("Selected object is not a Material or MaterialInstance."));
-        TmpStructure = TEXT("Warning: Selected object is not a Material or MaterialInstance.");
-        TmpGraph = TEXT("Warning: Selected object is not a Material or MaterialInstance.");
-    }
+	if (!Material && !MaterialInstance)
+	{
+		LogWarning(TEXT("Selected object is not a Material or MaterialInstance."));
+		OutData.Structure = FText::FromString("Warning: Selected object is not a Material or MaterialInstance.");
+		OutData.Graph = FText::FromString("Warning: Selected object is not a Material or MaterialInstance.");
+		return;
+	}
 
-    OutData.Structure = FText::FromString(TmpStructure);
-    OutData.Graph = FText::FromString(TmpGraph);
-    
-    LogMessage(FString::Printf(TEXT("Material extraction finished for %s"), *SelectedObject->GetName()));
+	FString TmpStructure;
+	FString TmpGraph;
+
+	// Для обычного материала
+	if (Material)
+	{
+		AppendMaterialInfo(Material, TmpStructure);
+		AppendMaterialParameters(Material, TmpStructure);
+		AppendMaterialGraph(Material, TmpGraph);
+	}
+
+	// Для материала-инстанса
+	if (MaterialInstance)
+	{
+		AppendMaterialInstanceInfo(MaterialInstance, TmpStructure);
+		AppendMaterialInstanceOverrides(MaterialInstance, TmpStructure);
+
+		UMaterial* ParentMaterial = MaterialInstance->GetMaterial();
+		if (ParentMaterial)
+		{
+			AppendMaterialGraph(ParentMaterial, TmpGraph);
+		}
+	}
+
+	OutData.Structure = FText::FromString(TmpStructure);
+	OutData.Graph = FText::FromString(TmpGraph);
 }
 
-//==============================================================================
-// Logging
-//==============================================================================
-void BPR_Extractor_Material::LogMessage(const FString& Msg) 
-{ 
-    UE_LOG(LogTemp, Log, TEXT("[BPR_Extractor_Material] %s"), *Msg); 
-}
-
-void BPR_Extractor_Material::LogWarning(const FString& Msg) 
-{ 
-    UE_LOG(LogTemp, Warning, TEXT("[BPR_Extractor_Material] %s"), *Msg); 
-}
-
-void BPR_Extractor_Material::LogError(const FString& Msg) 
-{ 
-    UE_LOG(LogTemp, Error, TEXT("[BPR_Extractor_Material] %s"), *Msg); 
-}
 
 //==============================================================================
-// UMaterial Processing
+// Информация о материале
 //==============================================================================
-void BPR_Extractor_Material::ProcessMaterialAsset(UMaterial* Material, FString& OutStructure, FString& OutGraph)
+void BPR_Extractor_Material::AppendMaterialInfo(UMaterial* Material, FString& OutText)
 {
-    if (!Material) return;
+	if (!Material) return;
 
-    AppendMaterialProperties(Material, OutStructure);
-    AppendMaterialParameters(Material, OutStructure);
-    AppendMaterialExpressions(Material, OutGraph);
+	OutText += FString::Printf(TEXT("Material: %s\n"), *CleanName(Material->GetName()));
+	OutText += FString::Printf(TEXT("Domain: %s\n"), *UEnum::GetValueAsString(Material->MaterialDomain));
+	OutText += FString::Printf(TEXT("BlendMode: %s\n"), *UEnum::GetValueAsString(Material->BlendMode));
+	OutText += FString::Printf(TEXT("ShadingModel: %s\n"), *UEnum::GetValueAsString(Material->GetShadingModels().GetFirstShadingModel()));
+	OutText += FString::Printf(TEXT("TwoSided: %s\n"), Material->TwoSided ? TEXT("True") : TEXT("False"));
+	OutText += FString::Printf(TEXT("DitheredLODTransition: %s\n"), Material->DitheredLODTransition ? TEXT("True") : TEXT("False"));
+	OutText += TEXT("\n");
 }
 
-void BPR_Extractor_Material::AppendMaterialProperties(UMaterial* Material, FString& OutText)
-{
-    if (!Material) return;
-
-    OutText += TEXT("## Material Properties\n");
-    OutText += TEXT("| Property | Value |\n");
-    OutText += TEXT("|----------|-------|\n");
-
-    // BlendMode
-    FString BlendMode = GetBlendModeName(Material->GetBlendMode());
-    OutText += FString::Printf(TEXT("| BlendMode | %s |\n"), *BlendMode);
-
-    // ShadingModels
-    FMaterialShadingModelField ShadingModels = Material->GetShadingModels();
-    FString ShadingModelsStr;
-    for (uint32 i = 0; i < uint32(MSM_MAX); ++i)
-    {
-        if (ShadingModels.HasShadingModel((EMaterialShadingModel)i))
-        {
-            if (!ShadingModelsStr.IsEmpty()) ShadingModelsStr += TEXT(", ");
-            ShadingModelsStr += GetShadingModelName((EMaterialShadingModel)i);
-        }
-    }
-    OutText += FString::Printf(TEXT("| ShadingModel | %s |\n"), *ShadingModelsStr);
-
-    // TwoSided
-    OutText += FString::Printf(TEXT("| TwoSided | %s |\n"), 
-        Material->IsTwoSided() ? TEXT("true") : TEXT("false"));
-
-    // IsMasked
-    OutText += FString::Printf(TEXT("| IsMasked | %s |\n"), 
-        Material->IsMasked() ? TEXT("true") : TEXT("false"));
-
-    OutText += TEXT("\n");
-}
-
+//==============================================================================
+// Параметры материала
+//==============================================================================
 void BPR_Extractor_Material::AppendMaterialParameters(UMaterial* Material, FString& OutText)
 {
-    if (!Material) return;
+	if (!Material) return;
 
-    // Собираем все параметры из Expression
-    TArray<UMaterialExpressionScalarParameter*> ScalarParams;
-    TArray<UMaterialExpressionVectorParameter*> VectorParams;
-    TArray<UMaterialExpressionTextureObjectParameter*> TextureParams;
+	OutText += TEXT("## Material Parameters\n");
 
-    TConstArrayView<TObjectPtr<UMaterialExpression>> Expressions = Material->GetExpressions();
+	// -----------------
+	// Scalar
+	// -----------------
+	TArray<FMaterialParameterInfo> ScalarInfos;
+	TArray<FGuid> ScalarIds;
+	Material->GetAllScalarParameterInfo(ScalarInfos, ScalarIds);
 
-    for (UMaterialExpression* Expr : Expressions)
-    {
-        if (!Expr) continue;
+	for (const FMaterialParameterInfo& Info : ScalarInfos)
+	{
+		float Value = 0.f;
+		Material->GetScalarParameterValue(Info, Value);
 
-        if (auto* Scalar = Cast<UMaterialExpressionScalarParameter>(Expr))
-            ScalarParams.Add(Scalar);
-        else if (auto* Vector = Cast<UMaterialExpressionVectorParameter>(Expr))
-            VectorParams.Add(Vector);
-        else if (auto* Texture = Cast<UMaterialExpressionTextureObjectParameter>(Expr))
-            TextureParams.Add(Texture);
-    }
+		OutText += FString::Printf(TEXT("Scalar: %s = %.3f\n"),
+			*Info.Name.ToString(), Value);
+	}
+
+	// -----------------
+	// Vector
+	// -----------------
+	TArray<FMaterialParameterInfo> VectorInfos;
+	TArray<FGuid> VectorIds;
+	Material->GetAllVectorParameterInfo(VectorInfos, VectorIds);
+
+	for (const FMaterialParameterInfo& Info : VectorInfos)
+	{
+		FLinearColor Value;
+		Material->GetVectorParameterValue(Info, Value);
+
+		OutText += FString::Printf(TEXT("Vector: %s = (%f,%f,%f,%f)\n"),
+			*Info.Name.ToString(),
+			Value.R, Value.G, Value.B, Value.A);
+	}
+
+	// -----------------
+	// Texture
+	// -----------------
+	TArray<FMaterialParameterInfo> TextureInfos;
+	TArray<FGuid> TextureIds;
+	Material->GetAllTextureParameterInfo(TextureInfos, TextureIds);
+
+	for (const FMaterialParameterInfo& Info : TextureInfos)
+	{
+		UTexture* Tex = nullptr;
+		Material->GetTextureParameterValue(Info, Tex);
+
+		FString TexName = Tex ? CleanName(Tex->GetName()) : TEXT("None");
+		OutText += FString::Printf(TEXT("Texture: %s = %s\n"),
+			*Info.Name.ToString(), *TexName);
+	}
+
+	// -----------------
+	// StaticSwitch
+	// -----------------
+	TArray<const UMaterialExpressionStaticSwitchParameter*> Switches;
+	Material->GetAllExpressionsOfType(Switches);
+
+	for (const UMaterialExpressionStaticSwitchParameter* Switch : Switches)
+	{
+		OutText += FString::Printf(TEXT("StaticSwitch: %s = %s\n"),
+			*Switch->ParameterName.ToString(),
+			Switch->DefaultValue ? TEXT("True") : TEXT("False"));
+	}
 
 
-    // Scalar Parameters
-    if (ScalarParams.Num() > 0)
-    {
-        OutText += TEXT("## Scalar Parameters\n");
-        OutText += TEXT("| Name | Default Value | Group | Description |\n");
-        OutText += TEXT("|------|---------------|-------|-------------|\n");
-
-        for (UMaterialExpressionScalarParameter* Param : ScalarParams)
-        {
-            FString Name = Param->ParameterName.ToString();
-            FString Value = FString::Printf(TEXT("%.6g"), Param->DefaultValue);
-            FString Group = Param->Group.ToString();
-            FString Desc = Param->Desc;
-
-            OutText += FString::Printf(TEXT("| %s | %s | %s | %s |\n"),
-                *Name, *Value, *Group, *Desc);
-        }
-
-        OutText += TEXT("\n");
-    }
-
-    // Vector Parameters
-    if (VectorParams.Num() > 0)
-    {
-        OutText += TEXT("## Vector Parameters\n");
-        OutText += TEXT("| Name | R | G | B | A | Group | Description |\n");
-        OutText += TEXT("|------|---|---|---|---|-------|-------------|\n");
-
-        for (UMaterialExpressionVectorParameter* Param : VectorParams)
-        {
-            FString Name = Param->ParameterName.ToString();
-            const FLinearColor& V = Param->DefaultValue;
-            FString Group = Param->Group.ToString();
-            FString Desc = Param->Desc;
-
-            OutText += FString::Printf(TEXT("| %s | %.3g | %.3g | %.3g | %.3g | %s | %s |\n"),
-                *Name, V.R, V.G, V.B, V.A, *Group, *Desc);
-        }
-
-        OutText += TEXT("\n");
-    }
-
-    // Texture Parameters
-    if (TextureParams.Num() > 0)
-    {
-        OutText += TEXT("## Texture Parameters\n");
-        OutText += TEXT("| Name | Default Texture | Group | Description |\n");
-        OutText += TEXT("|------|----------------|-------|-------------|\n");
-
-        for (UMaterialExpressionTextureObjectParameter* Param : TextureParams)
-        {
-            FString Name = Param->ParameterName.ToString();
-            FString TexName = Param->Texture ? Param->Texture->GetName() : TEXT("None");
-            FString Group = Param->Group.ToString();
-            FString Desc = Param->Desc;
-
-            OutText += FString::Printf(TEXT("| %s | %s | %s | %s |\n"),
-                *Name, *TexName, *Group, *Desc);
-        }
-
-        OutText += TEXT("\n");
-    }
-
-    // Если параметров нет
-    if (ScalarParams.Num() == 0 && VectorParams.Num() == 0 && TextureParams.Num() == 0)
-    {
-        OutText += TEXT("## Parameters\n");
-        OutText += TEXT("_No exposed parameters found._\n\n");
-    }
+	OutText += TEXT("\n");
 }
 
-void BPR_Extractor_Material::AppendMaterialExpressions(UMaterial* Material, FString& OutText)
+
+//==============================================================================
+// Обход графа материала
+//==============================================================================
+void BPR_Extractor_Material::AppendMaterialGraph(UMaterial* Material, FString& OutText)
 {
-    if (!Material) return;
+	if (!Material) return;
 
-    OutText += TEXT("## Expressions\n");
+	OutText += TEXT("## Material Graph\n");
 
-    TConstArrayView<TObjectPtr<UMaterialExpression>> Expressions = Material->GetExpressions();
+	struct FMatOutput
+	{
+		FString Name;
+		EMaterialProperty Property;
+	};
+	TArray<FMatOutput> Outputs = {
+		{TEXT("BaseColor"), MP_BaseColor},
+		{TEXT("Metallic"), MP_Metallic},
+		{TEXT("Specular"), MP_Specular},
+		{TEXT("Roughness"), MP_Roughness},
+		{TEXT("EmissiveColor"), MP_EmissiveColor},
+		{TEXT("Opacity"), MP_Opacity},
+		{TEXT("OpacityMask"), MP_OpacityMask},
+		{TEXT("Normal"), MP_Normal},
+		{TEXT("WorldPositionOffset"), MP_WorldPositionOffset}
+	};
 
-    if (Expressions.Num() == 0)
+	for (const FMatOutput& Out : Outputs)
+	{
+		TArray<UMaterialExpression*> RootExpressions;
+		Material->GetExpressionsInPropertyChain(Out.Property, RootExpressions, nullptr); 
+
+		if (RootExpressions.Num() == 0)
+		{
+			OutText += FString::Printf(TEXT("%s → None\n"), *Out.Name);
+			continue;
+		}
+
+		for (UMaterialExpression* RootExpr : RootExpressions)
+		{
+			AppendMaterialOutput(Out.Name, RootExpr, OutText);
+		}
+	}
+}
+
+
+
+//==============================================================================
+// Информация о MaterialInstance
+//==============================================================================
+void BPR_Extractor_Material::AppendMaterialInstanceInfo(UMaterialInstance* Instance, FString& OutText)
+{
+	if (!Instance) return;
+
+	OutText += FString::Printf(TEXT("MaterialInstance: %s\n"), *CleanName(Instance->GetName()));
+	UMaterial* Parent = Instance->GetMaterial();
+	if (Parent)
+	{
+		OutText += FString::Printf(TEXT("Parent Material: %s\n"), *CleanName(Parent->GetName()));
+	}
+	OutText += TEXT("\n");
+}
+
+
+//==============================================================================
+// Рекурсивный обход Expression
+//==============================================================================
+void BPR_Extractor_Material::ProcessExpression(
+	UMaterialExpression* Expression,
+	int32 IndentLevel,
+	TSet<UMaterialExpression*>& Visited,
+	FString& OutText)
+{
+	if (!Expression || Visited.Contains(Expression))
+	{
+		if (Expression)
+		{
+			OutText += FString::Printf(TEXT("%s[Loop Detected: %s]\n"), 
+				*MakeIndent(IndentLevel), *GetReadableExpressionName(Expression));
+		}
+		return;
+	}
+
+	Visited.Add(Expression);
+
+	// 1. Читаемое имя Expression
+	FString ExprName = GetReadableExpressionName(Expression);
+	OutText += FString::Printf(TEXT("%s- %s\n"), *MakeIndent(IndentLevel), *ExprName);
+
+	// 2. Обход всех входов через официальное API UE5.7
+	int32 NumInputs = Expression->CountInputs();
+	for (int32 i = 0; i < NumInputs; ++i)
+	{
+		FExpressionInput* Input = Expression->GetInput(i);
+		FName InputName = Expression->GetInputName(i);
+
+		if (!Input) continue;
+
+		FString InputDesc = GetInputValueDescription(*Input);
+		OutText += FString::Printf(TEXT("%s  Input: %s = %s\n"), 
+			*MakeIndent(IndentLevel), *InputName.ToString(), *InputDesc);
+
+		if (Input->Expression)
+		{
+			ProcessExpression(Input->Expression, IndentLevel + 1, Visited, OutText);
+		}
+	}
+}
+
+
+//==============================================================================
+// Обход Material Output
+//==============================================================================
+void BPR_Extractor_Material::AppendMaterialOutput(
+	const FString& OutputName,
+	UMaterialExpression* RootExpression,
+	FString& OutText)
+{
+	if (!RootExpression)
+	{
+		OutText += FString::Printf(TEXT("%s → None\n"), *OutputName);
+		return;
+	}
+
+	OutText += FString::Printf(TEXT("%s\n"), *OutputName);
+
+	TSet<UMaterialExpression*> Visited;
+	ProcessExpression(RootExpression, 1, Visited, OutText);
+}
+
+void BPR_Extractor_Material::AppendMaterialInstanceOverrides(UMaterialInstance* Instance, FString& OutText)
+{
+    if (!Instance) return;
+
+    OutText += TEXT("## MaterialInstance Parameters\n");
+
+    UMaterial* Parent = Instance->GetMaterial();
+    if (!Parent)
     {
-        OutText += TEXT("_No expressions found._\n");
+        OutText += TEXT("No parent material.\n\n");
         return;
     }
 
-
-    OutText += FString::Printf(TEXT("Total expressions: %d\n\n"), Expressions.Num());
-
-    // Группируем по типам для удобства
-    TMap<FString, int32> ExpressionCounts;
-
-    for (UMaterialExpression* Expr : Expressions)
+    auto AppendScalar = [&](const FMaterialParameterInfo& Info)
     {
-        if (!Expr) continue;
+        float ParentValue = 0.f;
+        Parent->GetScalarParameterValue(Info, ParentValue);
 
-        FString TypeName = Expr->GetClass()->GetName();
-        // Убираем префикс "MaterialExpression"
-        TypeName.RemoveFromStart(TEXT("MaterialExpression"));
+        float InstValue = 0.f;
+        Instance->GetScalarParameterValue(Info.Name, InstValue, false);
 
-        ExpressionCounts.FindOrAdd(TypeName)++;
-    }
+        bool bOverridden = !FMath::IsNearlyEqual(ParentValue, InstValue);
+        OutText += FString::Printf(TEXT("Scalar: %s = %.3f (%s)\n"),
+            *Info.Name.ToString(),
+            InstValue,
+            bOverridden ? TEXT("Overridden") : TEXT("Default"));
+    };
 
-    // Выводим статистику по типам
-    OutText += TEXT("### Expression Types:\n");
-    OutText += TEXT("| Type | Count |\n");
-    OutText += TEXT("|------|-------|\n");
-
-    // Сортируем по количеству
-    ExpressionCounts.ValueSort([](int32 A, int32 B) { return A > B; });
-
-    for (const auto& Pair : ExpressionCounts)
+    auto AppendVector = [&](const FMaterialParameterInfo& Info)
     {
-        OutText += FString::Printf(TEXT("| %s | %d |\n"), *Pair.Key, Pair.Value);
-    }
+        FLinearColor ParentValue;
+        Parent->GetVectorParameterValue(Info, ParentValue);
 
-    OutText += TEXT("\n### Expression List:\n");
+        FLinearColor InstValue;
+        Instance->GetVectorParameterValue(Info.Name, InstValue, false);
 
-    for (UMaterialExpression* Expr : Expressions)
+        bool bOverridden = !ParentValue.Equals(InstValue);
+        OutText += FString::Printf(TEXT("Vector: %s = (%f,%f,%f,%f) (%s)\n"),
+            *Info.Name.ToString(),
+            InstValue.R, InstValue.G, InstValue.B, InstValue.A,
+            bOverridden ? TEXT("Overridden") : TEXT("Default"));
+    };
+
+    auto AppendTexture = [&](const FMaterialParameterInfo& Info)
     {
-        if (!Expr) continue;
+        UTexture* ParentTex = nullptr;
+        Parent->GetTextureParameterValue(Info, ParentTex);
 
-        FString Description = GetExpressionDescription(Expr);
-        OutText += FString::Printf(TEXT("- %s\n"), *Description);
-    }
+        UTexture* InstTex = nullptr;
+        Instance->GetTextureParameterValue(Info.Name, InstTex, false);
 
-    OutText += TEXT("\n");
-}
+        bool bOverridden = ParentTex != InstTex;
+        FString InstName = InstTex ? CleanName(InstTex->GetName()) : TEXT("None");
+        FString ParentName = ParentTex ? CleanName(ParentTex->GetName()) : TEXT("None");
 
-//==============================================================================
-// MaterialInstance Processing
-//==============================================================================
-void BPR_Extractor_Material::ProcessMaterialInstanceAsset(UMaterialInstance* MatInst, FString& OutStructure, FString& OutGraph)
-{
-    if (!MatInst) return;
+        OutText += FString::Printf(TEXT("Texture: %s = %s (%s, Parent=%s)\n"),
+            *Info.Name.ToString(),
+            *InstName,
+            bOverridden ? TEXT("Overridden") : TEXT("Default"),
+            *ParentName);
+    };
 
-    AppendInstanceInfo(MatInst, OutStructure);
-    AppendParameterOverrides(MatInst, OutStructure);
+    // -----------------
+    // Scalar
+    TArray<FMaterialParameterInfo> ScalarInfos;
+    TArray<FGuid> ScalarIds;
+    Parent->GetAllScalarParameterInfo(ScalarInfos, ScalarIds);
+    for (const auto& Info : ScalarInfos) AppendScalar(Info);
 
-    // График инстанса ссылается на родителя
-    OutGraph += TEXT("## Graph Information\n");
-    OutGraph += TEXT("MaterialInstance does not have its own expression graph.\n");
-    OutGraph += TEXT("The graph is inherited from the parent material.\n\n");
+    // -----------------
+    // Vector
+    TArray<FMaterialParameterInfo> VectorInfos;
+    TArray<FGuid> VectorIds;
+    Parent->GetAllVectorParameterInfo(VectorInfos, VectorIds);
+    for (const auto& Info : VectorInfos) AppendVector(Info);
 
-    if (MatInst->Parent)
+    // -----------------
+    // Texture
+    TArray<FMaterialParameterInfo> TextureInfos;
+    TArray<FGuid> TextureIds;
+    Parent->GetAllTextureParameterInfo(TextureInfos, TextureIds);
+    for (const auto& Info : TextureInfos) AppendTexture(Info);
+
+    // -----------------
+    // StaticSwitch
+    FStaticParameterSet StaticParams;
+    Instance->GetStaticParameterValues(StaticParams);
+    for (const FStaticSwitchParameter& Param : StaticParams.StaticSwitchParameters)
     {
-        OutGraph += FString::Printf(TEXT("**Parent Material:** %s\n"), 
-            *MatInst->Parent->GetName());
-        OutGraph += TEXT("_To view the expression graph, open the parent material._\n");
-    }
-}
-
-void BPR_Extractor_Material::AppendInstanceInfo(UMaterialInstance* MatInst, FString& OutText)
-{
-    if (!MatInst) return;
-
-    OutText += TEXT("## Instance Information\n");
-    OutText += TEXT("| Property | Value |\n");
-    OutText += TEXT("|----------|-------|\n");
-
-    // Parent
-    if (MatInst->Parent)
-    {
-        OutText += FString::Printf(TEXT("| Parent Material | %s |\n"), 
-            *MatInst->Parent->GetName());
-
-        // Если родитель тоже инстанс - показываем цепочку
-        if (UMaterialInstance* ParentInst = Cast<UMaterialInstance>(MatInst->Parent.Get()))
-        {
-            OutText += FString::Printf(TEXT("| Parent Type | MaterialInstance |\n"));
-            
-            // Ищем корневой материал
-            UMaterial* BaseMaterial = MatInst->GetBaseMaterial();
-            if (BaseMaterial)
-            {
-                OutText += FString::Printf(TEXT("| Base Material | %s |\n"), 
-                    *BaseMaterial->GetName());
-            }
-        }
-        else if (UMaterial* ParentMat = Cast<UMaterial>(MatInst->Parent.Get()))
-        {
-            OutText += FString::Printf(TEXT("| Parent Type | Material |\n"));
-        }
-    }
-    else
-    {
-        OutText += TEXT("| Parent Material | None |\n");
+        OutText += FString::Printf(TEXT("StaticSwitch: %s = %s (%s)\n"),
+            *Param.ParameterInfo.Name.ToString(),
+            Param.Value ? TEXT("True") : TEXT("False"),
+            Param.bOverride ? TEXT("Overridden") : TEXT("Default"));
     }
 
     OutText += TEXT("\n");
-
-    // Если есть родитель-материал, показываем его свойства
-    if (UMaterial* BaseMat = MatInst->GetBaseMaterial())
-    {
-        OutText += TEXT("## Inherited Properties (from base material)\n");
-        AppendMaterialProperties(BaseMat, OutText);
-    }
 }
 
-void BPR_Extractor_Material::AppendParameterOverrides(UMaterialInstance* MatInst, FString& OutText)
+
+
+
+
+// Хелперы
+FString BPR_Extractor_Material::CleanName(const FString& RawName)
 {
-    if (!MatInst) return;
+	FString Result = RawName;
 
-    bool HasOverrides = false;
+	int32 UnderscoreIndex;
+	if (RawName.FindLastChar('_', UnderscoreIndex))
+	{
+		FString Tail = RawName.Mid(UnderscoreIndex + 1);
 
-    // Scalar Parameters
-    if (MatInst->ScalarParameterValues.Num() > 0)
-    {
-        OutText += TEXT("## Scalar Parameter Overrides\n");
-        OutText += TEXT("| Name | Value |\n");
-        OutText += TEXT("|------|-------|\n");
+		// Material часто генерит *_GUID или *_NUMBER
+		if (Tail.Len() >= 8 && Tail.IsNumeric())
+		{
+			Result = RawName.Left(UnderscoreIndex);
+		}
+	}
 
-        for (const FScalarParameterValue& Param : MatInst->ScalarParameterValues)
-        {
-            FString Name = Param.ParameterInfo.Name.ToString();
-            OutText += FString::Printf(TEXT("| %s | %.6g |\n"), *Name, Param.ParameterValue);
-        }
-
-        OutText += TEXT("\n");
-        HasOverrides = true;
-    }
-
-    // Vector Parameters
-    if (MatInst->VectorParameterValues.Num() > 0)
-    {
-        OutText += TEXT("## Vector Parameter Overrides\n");
-        OutText += TEXT("| Name | R | G | B | A |\n");
-        OutText += TEXT("|------|---|---|---|---|\n");
-
-        for (const FVectorParameterValue& Param : MatInst->VectorParameterValues)
-        {
-            FString Name = Param.ParameterInfo.Name.ToString();
-            const FLinearColor& V = Param.ParameterValue;
-            OutText += FString::Printf(TEXT("| %s | %.3g | %.3g | %.3g | %.3g |\n"),
-                *Name, V.R, V.G, V.B, V.A);
-        }
-
-        OutText += TEXT("\n");
-        HasOverrides = true;
-    }
-
-    // Texture Parameters
-    if (MatInst->TextureParameterValues.Num() > 0)
-    {
-        OutText += TEXT("## Texture Parameter Overrides\n");
-        OutText += TEXT("| Name | Texture |\n");
-        OutText += TEXT("|------|----------|\n");
-
-        for (const FTextureParameterValue& Param : MatInst->TextureParameterValues)
-        {
-            FString Name = Param.ParameterInfo.Name.ToString();
-            FString TexName = Param.ParameterValue ? Param.ParameterValue->GetName() : TEXT("None");
-            OutText += FString::Printf(TEXT("| %s | %s |\n"), *Name, *TexName);
-        }
-
-        OutText += TEXT("\n");
-        HasOverrides = true;
-    }
-
-    if (!HasOverrides)
-    {
-        OutText += TEXT("## Parameter Overrides\n");
-        OutText += TEXT("_No parameter overrides found._\n\n");
-    }
+	return Result;
 }
 
-//==============================================================================
-// Helper Methods
-//==============================================================================
-FString BPR_Extractor_Material::GetExpressionDescription(UMaterialExpression* Expression)
+bool BPR_Extractor_Material::HasAnyInputs(UMaterialExpression* Expression)
 {
-    if (!Expression) return TEXT("None");
+	if (!Expression) return false;
 
-    FString TypeName = Expression->GetClass()->GetName();
-    TypeName.RemoveFromStart(TEXT("MaterialExpression"));
-
-    // TextureSample
-    if (UMaterialExpressionTextureSample* TexSample = Cast<UMaterialExpressionTextureSample>(Expression))
-    {
-        FString TexName = TexSample->Texture ? TexSample->Texture->GetName() : TEXT("None");
-        return FString::Printf(TEXT("%s: %s"), *TypeName, *TexName);
-    }
-
-    // ScalarParameter
-    if (UMaterialExpressionScalarParameter* ScalarParam = Cast<UMaterialExpressionScalarParameter>(Expression))
-    {
-        return FString::Printf(TEXT("%s: %s (%.3g)"), 
-            *TypeName, 
-            *ScalarParam->ParameterName.ToString(), 
-            ScalarParam->DefaultValue);
-    }
-
-    // VectorParameter
-    if (UMaterialExpressionVectorParameter* VectorParam = Cast<UMaterialExpressionVectorParameter>(Expression))
-    {
-        const FLinearColor& V = VectorParam->DefaultValue;
-        return FString::Printf(TEXT("%s: %s (%.2g, %.2g, %.2g, %.2g)"), 
-            *TypeName,
-            *VectorParam->ParameterName.ToString(),
-            V.R, V.G, V.B, V.A);
-    }
-
-    // TextureParameter
-    if (UMaterialExpressionTextureObjectParameter* TexParam = Cast<UMaterialExpressionTextureObjectParameter>(Expression))
-    {
-        FString TexName = TexParam->Texture ? TexParam->Texture->GetName() : TEXT("None");
-        return FString::Printf(TEXT("%s: %s = %s"), 
-            *TypeName,
-            *TexParam->ParameterName.ToString(),
-            *TexName);
-    }
-
-    // Constant
-    if (UMaterialExpressionConstant* Const = Cast<UMaterialExpressionConstant>(Expression))
-    {
-        return FString::Printf(TEXT("%s: %.6g"), *TypeName, Const->R);
-    }
-
-    // Fallback - просто тип
-    return TypeName;
+	// Пока считаем, что если это не Constant —
+	// у него потенциально есть входы
+	return !Expression->IsA<UMaterialExpressionConstant>()
+		&& !Expression->IsA<UMaterialExpressionScalarParameter>()
+		&& !Expression->IsA<UMaterialExpressionVectorParameter>();
 }
 
-FString BPR_Extractor_Material::GetShadingModelName(EMaterialShadingModel Model)
+
+FString BPR_Extractor_Material::GetInputValueDescription(const FExpressionInput& Input)
 {
-    switch (Model)
-    {
-        case MSM_Unlit: return TEXT("Unlit");
-        case MSM_DefaultLit: return TEXT("DefaultLit");
-        case MSM_Subsurface: return TEXT("Subsurface");
-        case MSM_PreintegratedSkin: return TEXT("PreintegratedSkin");
-        case MSM_ClearCoat: return TEXT("ClearCoat");
-        case MSM_SubsurfaceProfile: return TEXT("SubsurfaceProfile");
-        case MSM_TwoSidedFoliage: return TEXT("TwoSidedFoliage");
-        case MSM_Hair: return TEXT("Hair");
-        case MSM_Cloth: return TEXT("Cloth");
-        case MSM_Eye: return TEXT("Eye");
-        case MSM_SingleLayerWater: return TEXT("SingleLayerWater");
-        case MSM_ThinTranslucent: return TEXT("ThinTranslucent");
-        default: return TEXT("Unknown");
-    }
+	if (Input.Expression)
+	{
+		return FString::Printf(
+			TEXT("<linked: %s>"),
+			*GetReadableExpressionName(Input.Expression)
+		);
+	}
+
+	return TEXT("Unconnected");
 }
 
-FString BPR_Extractor_Material::GetBlendModeName(EBlendMode Mode)
+
+FString BPR_Extractor_Material::GetReadableExpressionName(UMaterialExpression* Expression)
 {
-    switch (Mode)
-    {
-        case BLEND_Opaque: return TEXT("Opaque");
-        case BLEND_Masked: return TEXT("Masked");
-        case BLEND_Translucent: return TEXT("Translucent");
-        case BLEND_Additive: return TEXT("Additive");
-        case BLEND_Modulate: return TEXT("Modulate");
-        case BLEND_AlphaComposite: return TEXT("AlphaComposite");
-        case BLEND_AlphaHoldout: return TEXT("AlphaHoldout");
-        default: return TEXT("Unknown");
-    }
+	if (!Expression)
+		return TEXT("None");
+
+	// 1. Базовый тип
+	FString ClassName = Expression->GetClass()->GetName();
+	ClassName.RemoveFromStart(TEXT("MaterialExpression"));
+
+	FString Result = ClassName;
+
+	// 2. Частные случаи (самые важные)
+	if (auto* Tex = Cast<UMaterialExpressionTextureSample>(Expression))
+	{
+		FString TexName = Tex->Texture
+			? CleanName(Tex->Texture->GetName())
+			: TEXT("None");
+
+		Result = FString::Printf(TEXT("TextureSample(%s)"), *TexName);
+	}
+	else if (auto* Scalar = Cast<UMaterialExpressionScalarParameter>(Expression))
+	{
+		Result = FString::Printf(
+			TEXT("ScalarParam(%s = %.3f)"),
+			*Scalar->ParameterName.ToString(),
+			Scalar->DefaultValue
+		);
+	}
+	else if (auto* Vector = Cast<UMaterialExpressionVectorParameter>(Expression))
+	{
+		Result = FString::Printf(
+			TEXT("VectorParam(%s)"),
+			*Vector->ParameterName.ToString()
+		);
+	}
+	else if (auto* Const = Cast<UMaterialExpressionConstant>(Expression))
+	{
+		Result = FString::Printf(
+			TEXT("Constant(%.3f)"),
+			Const->R
+		);
+	}
+
+	// 3. Комментарий
+	if (!Expression->Desc.IsEmpty())
+	{
+		Result += FString::Printf(TEXT(" // %s"), *Expression->Desc);
+	}
+
+	return Result;
+}
+
+FString BPR_Extractor_Material::MakeIndent(int32 Level)
+{
+	return FString::ChrN(Level * 2, ' '); // 2 пробела на уровень
+}
+
+void BPR_Extractor_Material::LogWarning(const FString& Msg)
+{
+	UE_LOG(LogTemp, Warning, TEXT("%s"), *Msg);
+}
+
+void BPR_Extractor_Material::LogError(const FString& Msg)
+{
+	UE_LOG(LogTemp, Error, TEXT("%s"), *Msg);
+}
+
+void BPR_Extractor_Material::LogMessage(const FString& Msg)
+{
+	UE_LOG(LogTemp, Log, TEXT("%s"), *Msg);
 }

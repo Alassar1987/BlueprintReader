@@ -1,19 +1,23 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Materials/Material.h"
-#include "Materials/MaterialInstance.h"
-#include "Materials/MaterialExpression.h"
 #include "Core/BPR_Core.h"
+
+class UMaterial;
+class UMaterialInstance;
+class UMaterialExpression;
 
 /**
  * Экстрактор для Material и MaterialInstance.
- * Собирает свойства материала, параметры и граф выражений.
- * Результат возвращается в Core через FText.
+ * Преобразует Material Graph в текстовое представление:
+ *  - структуру материала
+ *  - параметры
+ *  - граф зависимостей от Material Outputs
  */
 class BLUEPRINTREADER_API BPR_Extractor_Material
 {
 public:
+
     BPR_Extractor_Material();
     ~BPR_Extractor_Material();
 
@@ -24,6 +28,7 @@ public:
     void ProcessMaterial(UObject* SelectedObject, FBPR_ExtractedData& OutData);
 
 private:
+
     // -------------------------------
     // Логирование
     // -------------------------------
@@ -32,41 +37,62 @@ private:
     void LogError(const FString& Msg);
 
     // -------------------------------
-    // Обработка UMaterial
+    // Структура материала (декларативная часть)
     // -------------------------------
-    /** Обработка базового материала */
-    void ProcessMaterialAsset(UMaterial* Material, FString& OutStructure, FString& OutGraph);
-    
-    /** Свойства материала (BlendMode, ShadingModel, TwoSided) */
-    void AppendMaterialProperties(UMaterial* Material, FString& OutText);
-    
-    /** Параметры материала в табличном формате */
+    /** Общая информация о материале (Domain, BlendMode, ShadingModel и т.д.) */
+    void AppendMaterialInfo(UMaterial* Material, FString& OutText);
+
+    /** Параметры материала (Scalar / Vector / Texture / Static Switch) */
     void AppendMaterialParameters(UMaterial* Material, FString& OutText);
-    
-    /** Expression-ноды материала */
-    void AppendMaterialExpressions(UMaterial* Material, FString& OutText);
+
+    /** Информация о MaterialInstance и его родителе */
+    void AppendMaterialInstanceInfo(UMaterialInstance* Instance, FString& OutText);
+
+    /** Переопределённые параметры инстанса */
+    void AppendMaterialInstanceOverrides(UMaterialInstance* Instance, FString& OutText);
 
     // -------------------------------
-    // Обработка MaterialInstance
+    // Граф материала (вычислительная часть)
     // -------------------------------
-    /** Обработка инстанса материала */
-    void ProcessMaterialInstanceAsset(UMaterialInstance* MatInst, FString& OutStructure, FString& OutGraph);
+    /** Точка входа обхода графа — все Material Outputs */
+    void AppendMaterialGraph(UMaterial* Material, FString& OutText);
+
+    /** Обрабатывает конкретный Material Output (BaseColor, Normal, etc.) */
+    void AppendMaterialOutput(
+        const FString& OutputName,
+        UMaterialExpression* RootExpression,
+        FString& OutText
+    );
     
-    /** Информация об инстансе и его родителе */
-    void AppendInstanceInfo(UMaterialInstance* MatInst, FString& OutText);
-    
-    /** Переопределенные параметры инстанса в табличном формате */
-    void AppendParameterOverrides(UMaterialInstance* MatInst, FString& OutText);
+    /** Рекурсивный обход Expression-графа (data-flow) */
+    void ProcessExpression(
+        UMaterialExpression* Expression,
+        int32 IndentLevel,
+        TSet<UMaterialExpression*>& Visited,
+        FString& OutText
+    );
+
+    // -------------------------------
+    // Expression / Input helpers
+    // -------------------------------
+    /** Читабельное имя Expression (тип + ключевые параметры) */
+    FString GetReadableExpressionName(UMaterialExpression* Expression);
+
+    /** Детализация входных пинов Expression */
+    FString GetExpressionInputs(UMaterialExpression* Expression, int32 IndentLevel);
+
+    /** Значение входа: связь или дефолт */
+    FString GetInputValueDescription(const struct FExpressionInput& Input);
+
+    /** Проверка: есть ли у Expression входящие связи */
+    bool HasAnyInputs(UMaterialExpression* Expression);
 
     // -------------------------------
     // Вспомогательные методы
     // -------------------------------
-    /** Преобразует Expression в читаемое описание */
-    FString GetExpressionDescription(UMaterialExpression* Expression);
-    
-    /** Форматирует имя Shading Model */
-    FString GetShadingModelName(EMaterialShadingModel Model);
-    
-    /** Форматирует BlendMode */
-    FString GetBlendModeName(EBlendMode Mode);
+    /** Очистка имён от технических суффиксов */
+    FString CleanName(const FString& RawName);
+
+    /** Отступы для визуального отображения графа */
+    FString MakeIndent(int32 Level);
 };

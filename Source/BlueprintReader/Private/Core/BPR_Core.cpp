@@ -50,8 +50,11 @@ bool BPR_Core::IsSupportedAsset(UObject* Object)
         }
     }
 
-    if (Cast<UMaterial>(Object)) { CachedType = EAssetType::Material; return true; }
-    //if (Cast<UMaterialInstance>(Object)) { CachedType = EAssetType::MaterialInstance; return true; }
+    if (Cast<UMaterial>(Object) || Cast<UMaterialInstance>(Object))
+    {
+        CachedType = EAssetType::Material;
+        return true;
+    }
     if (Cast<UMaterialFunction>(Object)) { CachedType = EAssetType::MaterialFunction; return true; }
     //if (Cast<UMaterialFunctionInstance>(Object)) { CachedType = EAssetType::MaterialFunctionInstance; return true; }
     if (Cast<UEnum>(Object)) { CachedType = EAssetType::Enum; return true; }
