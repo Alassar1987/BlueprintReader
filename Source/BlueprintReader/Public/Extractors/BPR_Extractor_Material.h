@@ -59,17 +59,19 @@ private:
 
     /** Обрабатывает конкретный Material Output (BaseColor, Normal, etc.) */
     void AppendMaterialOutput(
-        const FString& OutputName,
-        UMaterialExpression* RootExpression,
-        FString& OutText
-    );
+    const FString& OutputName,
+    UMaterialExpression* RootExpression,
+    FString& OutText,
+    TMap<UMaterialExpression*, int32>& NodeIds,
+    TMap<int32, FString>& NodeTexts,
+    int32& NextId);
     
     /** Рекурсивный обход Expression-графа (data-flow) */
-    void ProcessExpression(
-        UMaterialExpression* Expression,
-        int32 IndentLevel,
-        TSet<UMaterialExpression*>& Visited,
-        FString& OutText
+    void ProcessExpressionDAG(
+    UMaterialExpression* Expression,
+    TMap<UMaterialExpression*, int32>& NodeIds,
+    TMap<int32, FString>& NodeTexts,
+    int32& NextId
     );
 
     // -------------------------------
@@ -86,6 +88,15 @@ private:
 
     /** Проверка: есть ли у Expression входящие связи */
     bool HasAnyInputs(UMaterialExpression* Expression);
+    
+    FString GetReadableNodeName(UMaterialExpression* Expr, int32 NodeId);
+    
+    void CollectNodesRecursive(
+    UMaterialExpression* Expr,
+    TSet<UMaterialExpression*>& Visited,
+    TArray<FString>& OutNodeNames,
+    TMap<UMaterialExpression*, int32>& NodeIds);
+
 
     // -------------------------------
     // Вспомогательные методы
@@ -95,4 +106,11 @@ private:
 
     /** Отступы для визуального отображения графа */
     FString MakeIndent(int32 Level);
+    
+    bool IsTransparentExpression(UMaterialExpression* Expr);
+    
+    // Возвращает первый НЕ-прозрачный expression вверх по цепочке
+    // Может вернуть nullptr, если цепочка оборвана или зациклена
+    UMaterialExpression* ResolveExpression(UMaterialExpression* Expr);
+
 };

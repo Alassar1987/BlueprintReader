@@ -6,6 +6,8 @@
 #include "Materials/MaterialExpressionVectorParameter.h"
 #include "Materials/MaterialExpressionConstant.h"
 #include "MaterialExpressionIO.h"
+#include "Materials/MaterialExpressionReroute.h"
+#include "Materials/MaterialExpressionNamedReroute.h"
 #include "Materials/MaterialExpressionStaticSwitchParameter.h" // для StaticSwitch
 #include "UObject/UnrealType.h" // FProperty, FStructProperty
 
@@ -181,6 +183,12 @@ void BPR_Extractor_Material::AppendMaterialGraph(UMaterial* Material, FString& O
 		{TEXT("WorldPositionOffset"), MP_WorldPositionOffset}
 	};
 
+	// DAG структуры
+	TMap<UMaterialExpression*, int32> NodeIds;
+	TMap<int32, FString> NodeTexts;
+	int32 NextId = 1;
+
+	// Фаза 1: Outputs
 	for (const FMatOutput& Out : Outputs)
 	{
 		TArray<UMaterialExpression*> RootExpressions;
@@ -194,10 +202,18 @@ void BPR_Extractor_Material::AppendMaterialGraph(UMaterial* Material, FString& O
 
 		for (UMaterialExpression* RootExpr : RootExpressions)
 		{
-			AppendMaterialOutput(Out.Name, RootExpr, OutText);
+			AppendMaterialOutput(Out.Name, RootExpr, OutText, NodeIds, NodeTexts, NextId);
 		}
 	}
+
+	// Фаза 2: Nodes
+	OutText += TEXT("\n## Nodes\n");
+	for (auto& Pair : NodeTexts)
+	{
+		OutText += Pair.Value;
+	}
 }
+
 
 
 
@@ -221,47 +237,61 @@ void BPR_Extractor_Material::AppendMaterialInstanceInfo(UMaterialInstance* Insta
 //==============================================================================
 // Рекурсивный обход Expression
 //==============================================================================
-void BPR_Extractor_Material::ProcessExpression(
+void BPR_Extractor_Material::ProcessExpressionDAG(
 	UMaterialExpression* Expression,
-	int32 IndentLevel,
-	TSet<UMaterialExpression*>& Visited,
-	FString& OutText)
+	TMap<UMaterialExpression*, int32>& NodeIds,
+	TMap<int32, FString>& NodeTexts,
+	int32& NextId)
 {
-	if (!Expression || Visited.Contains(Expression))
-	{
-		if (Expression)
-		{
-			OutText += FString::Printf(TEXT("%s[Loop Detected: %s]\n"), 
-				*MakeIndent(IndentLevel), *GetReadableExpressionName(Expression));
-		}
+	if (!Expression)
 		return;
-	}
 
-	Visited.Add(Expression);
+	// Если нода уже обработана, ничего не делаем
+	if (NodeIds.Contains(Expression))
+		return;
 
-	// 1. Читаемое имя Expression
-	FString ExprName = GetReadableExpressionName(Expression);
-	OutText += FString::Printf(TEXT("%s- %s\n"), *MakeIndent(IndentLevel), *ExprName);
+	// Присваиваем уникальный ID
+	int32 NodeId = NextId++;
+	NodeIds.Add(Expression, NodeId);
 
-	// 2. Обход всех входов через официальное API UE5.7
+	// Читаемое имя ноды
+	FString NodeDisplayName = GetReadableNodeName(Expression, NodeId);
+
+	// Строим текст ноды
+	FString NodeText = FString::Printf(TEXT("Node: %s\n"), *NodeDisplayName);
+
 	int32 NumInputs = Expression->CountInputs();
 	for (int32 i = 0; i < NumInputs; ++i)
 	{
 		FExpressionInput* Input = Expression->GetInput(i);
-		FName InputName = Expression->GetInputName(i);
-
 		if (!Input) continue;
 
-		FString InputDesc = GetInputValueDescription(*Input);
-		OutText += FString::Printf(TEXT("%s  Input: %s = %s\n"), 
-			*MakeIndent(IndentLevel), *InputName.ToString(), *InputDesc);
+		FString InputName = Expression->GetInputName(i).ToString();
 
 		if (Input->Expression)
 		{
-			ProcessExpression(Input->Expression, IndentLevel + 1, Visited, OutText);
+			UMaterialExpression* ChildExpr = Input->Expression;
+
+			// Рекурсивно обрабатываем child
+			ProcessExpressionDAG(ChildExpr, NodeIds, NodeTexts, NextId);
+
+			// Добавляем ссылку на child через читаемое имя
+			int32 ChildId = NodeIds[ChildExpr];
+			FString ChildDisplayName = GetReadableNodeName(ChildExpr, ChildId);
+			NodeText += FString::Printf(TEXT("  Input: %s -> %s\n"), *InputName, *ChildDisplayName);
+		}
+		else
+		{
+			NodeText += FString::Printf(TEXT("  Input: %s = Unconnected\n"), *InputName);
 		}
 	}
+
+	// Сохраняем текст ноды один раз
+	NodeTexts.Add(NodeId, NodeText);
 }
+
+
+
 
 
 //==============================================================================
@@ -270,7 +300,10 @@ void BPR_Extractor_Material::ProcessExpression(
 void BPR_Extractor_Material::AppendMaterialOutput(
 	const FString& OutputName,
 	UMaterialExpression* RootExpression,
-	FString& OutText)
+	FString& OutText,
+	TMap<UMaterialExpression*, int32>& NodeIds,
+	TMap<int32, FString>& NodeTexts,
+	int32& NextId)
 {
 	if (!RootExpression)
 	{
@@ -278,10 +311,20 @@ void BPR_Extractor_Material::AppendMaterialOutput(
 		return;
 	}
 
-	OutText += FString::Printf(TEXT("%s\n"), *OutputName);
+	// Получаем или присваиваем ID для RootExpression и всех вложенных нод
+	if (!NodeIds.Contains(RootExpression))
+	{
+		ProcessExpressionDAG(RootExpression, NodeIds, NodeTexts, NextId);
+	}
 
+	// Сбор всех нод через новый хелпер
 	TSet<UMaterialExpression*> Visited;
-	ProcessExpression(RootExpression, 1, Visited, OutText);
+	TArray<FString> NodeNames;
+	CollectNodesRecursive(RootExpression, Visited, NodeNames, NodeIds);
+
+	// Соединяем через запятую и выводим в строку
+	FString JoinedNodes = FString::Join(NodeNames, TEXT(", "));
+	OutText += FString::Printf(TEXT("%s = %s\n"), *OutputName, *JoinedNodes);
 }
 
 void BPR_Extractor_Material::AppendMaterialInstanceOverrides(UMaterialInstance* Instance, FString& OutText)
@@ -489,6 +532,106 @@ FString BPR_Extractor_Material::MakeIndent(int32 Level)
 	return FString::ChrN(Level * 2, ' '); // 2 пробела на уровень
 }
 
+bool BPR_Extractor_Material::IsTransparentExpression(UMaterialExpression* Expression)
+{
+	if (!Expression) return false;
+
+	// Reroute — всегда
+	if (Expression->IsA<UMaterialExpressionReroute>()) return true;
+	if (Expression->IsA<UMaterialExpressionNamedRerouteUsage>()) return true;
+
+	// Declaration — особый случай (логически прозрачна)
+	if (Expression->IsA<UMaterialExpressionNamedRerouteDeclaration>()) return true;
+
+	return false;
+}
+
+UMaterialExpression* BPR_Extractor_Material::ResolveExpression(UMaterialExpression* Expr)
+{
+	if (!Expr)
+	{
+		return nullptr;
+	}
+
+	TSet<UMaterialExpression*> Visited;
+	UMaterialExpression* Current = Expr;
+
+	while (Current && IsTransparentExpression(Current))
+	{
+		// защита от циклов
+		if (Visited.Contains(Current))
+		{
+			LogWarning(FString::Printf(
+				TEXT("ResolveExpression: loop detected at %s"),
+				*Current->GetName()
+			));
+			return nullptr;
+		}
+
+		Visited.Add(Current);
+
+		// Получаем входы expression (разыменованные)
+		TArray<UMaterialExpression*> InputExpressions;
+		Current->GetAllInputExpressions(InputExpressions);
+
+		if (InputExpressions.Num() == 0)
+		{
+			// прозрачная нода без входов
+			return nullptr;
+		}
+
+		// Для прозрачных нод берём первый вход
+		Current = InputExpressions[0];
+	}
+
+	return Current;
+}
+
+FString BPR_Extractor_Material::GetReadableNodeName(UMaterialExpression* Expr, int32 NodeId)
+{
+	if (!Expr)
+		return FString::Printf(TEXT("UnknownNode_%d"), NodeId);
+
+	// Получаем имя класса
+	FString TypeName = Expr->GetClass()->GetName(); // например MaterialExpressionLinearInterpolate
+
+	// Убираем префикс "MaterialExpression", если он есть
+	const FString Prefix = TEXT("MaterialExpression");
+	if (TypeName.StartsWith(Prefix))
+	{
+		TypeName = TypeName.RightChop(Prefix.Len());
+	}
+
+	return FString::Printf(TEXT("%s_%d"), *TypeName, NodeId);
+}
+
+void BPR_Extractor_Material::CollectNodesRecursive(
+	UMaterialExpression* Expr,
+	TSet<UMaterialExpression*>& Visited,
+	TArray<FString>& OutNodeNames,
+	TMap<UMaterialExpression*, int32>& NodeIds)
+{
+	if (!Expr || Visited.Contains(Expr))
+		return;
+
+	Visited.Add(Expr);
+
+	int32 NodeId = NodeIds[Expr];
+	OutNodeNames.Add(GetReadableNodeName(Expr, NodeId));
+
+	int32 NumInputs = Expr->CountInputs();
+	for (int32 i = 0; i < NumInputs; ++i)
+	{
+		FExpressionInput* Input = Expr->GetInput(i);
+		if (Input && Input->Expression)
+		{
+			CollectNodesRecursive(Input->Expression, Visited, OutNodeNames, NodeIds);
+		}
+	}
+}
+
+
+// Логгеры
 void BPR_Extractor_Material::LogWarning(const FString& Msg)
 {
 	UE_LOG(LogTemp, Warning, TEXT("%s"), *Msg);
