@@ -60,11 +60,12 @@ private:
     /** Обрабатывает конкретный Material Output (BaseColor, Normal, etc.) */
     void AppendMaterialOutput(
     const FString& OutputName,
-    UMaterialExpression* RootExpression,
+    const TArray<UMaterialExpression*>& DirectExpressions,
     FString& OutText,
     TMap<UMaterialExpression*, int32>& NodeIds,
     TMap<int32, FString>& NodeTexts,
     int32& NextId);
+
     
     /** Рекурсивный обход Expression-графа (data-flow) */
     void ProcessExpressionDAG(
@@ -91,13 +92,6 @@ private:
     
     FString GetReadableNodeName(UMaterialExpression* Expr, int32 NodeId);
     
-    void CollectNodesRecursive(
-    UMaterialExpression* Expr,
-    TSet<UMaterialExpression*>& Visited,
-    TArray<FString>& OutNodeNames,
-    TMap<UMaterialExpression*, int32>& NodeIds);
-
-
     // -------------------------------
     // Вспомогательные методы
     // -------------------------------

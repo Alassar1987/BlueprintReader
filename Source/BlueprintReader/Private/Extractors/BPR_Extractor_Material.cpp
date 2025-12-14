@@ -10,6 +10,9 @@
 #include "Materials/MaterialExpressionNamedReroute.h"
 #include "Materials/MaterialExpressionStaticSwitchParameter.h" // для StaticSwitch
 #include "UObject/UnrealType.h" // FProperty, FStructProperty
+#include "Materials/MaterialParameterCollection.h"
+#include "Materials/MaterialParameterCollectionInstance.h"
+
 
 BPR_Extractor_Material::BPR_Extractor_Material() {}
 BPR_Extractor_Material::~BPR_Extractor_Material() {}
@@ -101,7 +104,7 @@ void BPR_Extractor_Material::AppendMaterialParameters(UMaterial* Material, FStri
 		float Value = 0.f;
 		Material->GetScalarParameterValue(Info, Value);
 
-		OutText += FString::Printf(TEXT("Scalar: %s = %.3f\n"),
+		OutText += FString::Printf(TEXT("ScalarParam_%s = %.3f\n"),
 			*Info.Name.ToString(), Value);
 	}
 
@@ -117,7 +120,7 @@ void BPR_Extractor_Material::AppendMaterialParameters(UMaterial* Material, FStri
 		FLinearColor Value;
 		Material->GetVectorParameterValue(Info, Value);
 
-		OutText += FString::Printf(TEXT("Vector: %s = (%f,%f,%f,%f)\n"),
+		OutText += FString::Printf(TEXT("VectorParam_%s = (%f,%f,%f,%f)\n"),
 			*Info.Name.ToString(),
 			Value.R, Value.G, Value.B, Value.A);
 	}
@@ -135,26 +138,28 @@ void BPR_Extractor_Material::AppendMaterialParameters(UMaterial* Material, FStri
 		Material->GetTextureParameterValue(Info, Tex);
 
 		FString TexName = Tex ? CleanName(Tex->GetName()) : TEXT("None");
-		OutText += FString::Printf(TEXT("Texture: %s = %s\n"),
+		OutText += FString::Printf(TEXT("Texture_%s = %s\n"),
 			*Info.Name.ToString(), *TexName);
 	}
 
 	// -----------------
 	// StaticSwitch
 	// -----------------
-	TArray<const UMaterialExpressionStaticSwitchParameter*> Switches;
-	Material->GetAllExpressionsOfType(Switches);
+	TArray<FStaticSwitchParameter> SwitchParams;
+	FStaticParameterSet DummySet;
+	Material->GetStaticParameterValues(DummySet);
+	SwitchParams = DummySet.StaticSwitchParameters;
 
-	for (const UMaterialExpressionStaticSwitchParameter* Switch : Switches)
+	for (const FStaticSwitchParameter& Param : SwitchParams)
 	{
-		OutText += FString::Printf(TEXT("StaticSwitch: %s = %s\n"),
-			*Switch->ParameterName.ToString(),
-			Switch->DefaultValue ? TEXT("True") : TEXT("False"));
+		OutText += FString::Printf(TEXT("StaticSwitch_%s = %s\n"),
+			*Param.ParameterInfo.Name.ToString(),
+			Param.Value ? TEXT("True") : TEXT("False"));
 	}
-
 
 	OutText += TEXT("\n");
 }
+
 
 
 //==============================================================================
@@ -171,7 +176,8 @@ void BPR_Extractor_Material::AppendMaterialGraph(UMaterial* Material, FString& O
 		FString Name;
 		EMaterialProperty Property;
 	};
-	TArray<FMatOutput> Outputs = {
+
+	const TArray<FMatOutput> Outputs = {
 		{TEXT("BaseColor"), MP_BaseColor},
 		{TEXT("Metallic"), MP_Metallic},
 		{TEXT("Specular"), MP_Specular},
@@ -188,33 +194,44 @@ void BPR_Extractor_Material::AppendMaterialGraph(UMaterial* Material, FString& O
 	TMap<int32, FString> NodeTexts;
 	int32 NextId = 1;
 
+	// ----------------------
 	// Фаза 1: Outputs
+	// ----------------------
 	for (const FMatOutput& Out : Outputs)
 	{
-		TArray<UMaterialExpression*> RootExpressions;
-		Material->GetExpressionsInPropertyChain(Out.Property, RootExpressions, nullptr); 
+		TArray<UMaterialExpression*> DirectExpressions;
+		Material->GetExpressionsInPropertyChain(
+			Out.Property,
+			DirectExpressions,
+			nullptr
+		);
 
-		if (RootExpressions.Num() == 0)
+		if (DirectExpressions.Num() == 0)
 		{
 			OutText += FString::Printf(TEXT("%s → None\n"), *Out.Name);
 			continue;
 		}
 
-		for (UMaterialExpression* RootExpr : RootExpressions)
-		{
-			AppendMaterialOutput(Out.Name, RootExpr, OutText, NodeIds, NodeTexts, NextId);
-		}
+		// ❗ ВАЖНО: один вызов на Output
+		AppendMaterialOutput(
+			Out.Name,
+			DirectExpressions,
+			OutText,
+			NodeIds,
+			NodeTexts,
+			NextId
+		);
 	}
 
+	// ----------------------
 	// Фаза 2: Nodes
+	// ----------------------
 	OutText += TEXT("\n## Nodes\n");
 	for (auto& Pair : NodeTexts)
 	{
 		OutText += Pair.Value;
 	}
 }
-
-
 
 
 //==============================================================================
@@ -290,42 +307,57 @@ void BPR_Extractor_Material::ProcessExpressionDAG(
 	NodeTexts.Add(NodeId, NodeText);
 }
 
-
-
-
-
 //==============================================================================
 // Обход Material Output
 //==============================================================================
 void BPR_Extractor_Material::AppendMaterialOutput(
 	const FString& OutputName,
-	UMaterialExpression* RootExpression,
+	const TArray<UMaterialExpression*>& DirectExpressions,
 	FString& OutText,
 	TMap<UMaterialExpression*, int32>& NodeIds,
 	TMap<int32, FString>& NodeTexts,
 	int32& NextId)
 {
-	if (!RootExpression)
+	if (DirectExpressions.Num() == 0)
 	{
 		OutText += FString::Printf(TEXT("%s → None\n"), *OutputName);
 		return;
 	}
 
-	// Получаем или присваиваем ID для RootExpression и всех вложенных нод
-	if (!NodeIds.Contains(RootExpression))
+	TArray<FString> DirectNames;
+
+	for (UMaterialExpression* Expr : DirectExpressions)
 	{
-		ProcessExpressionDAG(RootExpression, NodeIds, NodeTexts, NextId);
+		if (!Expr)
+			continue;
+
+		// 🔹 НОВОЕ: разрешаем логический источник
+		UMaterialExpression* ResolvedExpr = ResolveExpression(Expr);
+		if (!ResolvedExpr)
+			continue;
+
+		// Добавляем в DAG уже логическую ноду
+		if (!NodeIds.Contains(ResolvedExpr))
+		{
+			ProcessExpressionDAG(ResolvedExpr, NodeIds, NodeTexts, NextId);
+		}
+
+		DirectNames.Add(
+			GetReadableNodeName(ResolvedExpr, NodeIds[ResolvedExpr])
+		);
 	}
 
-	// Сбор всех нод через новый хелпер
-	TSet<UMaterialExpression*> Visited;
-	TArray<FString> NodeNames;
-	CollectNodesRecursive(RootExpression, Visited, NodeNames, NodeIds);
+	if (DirectNames.Num() == 0)
+	{
+		OutText += FString::Printf(TEXT("%s → None\n"), *OutputName);
+		return;
+	}
 
-	// Соединяем через запятую и выводим в строку
-	FString JoinedNodes = FString::Join(NodeNames, TEXT(", "));
-	OutText += FString::Printf(TEXT("%s = %s\n"), *OutputName, *JoinedNodes);
+	FString Joined = FString::Join(DirectNames, TEXT(", "));
+	OutText += FString::Printf(TEXT("%s → %s\n"), *OutputName, *Joined);
 }
+
+
 
 void BPR_Extractor_Material::AppendMaterialInstanceOverrides(UMaterialInstance* Instance, FString& OutText)
 {
@@ -590,46 +622,43 @@ UMaterialExpression* BPR_Extractor_Material::ResolveExpression(UMaterialExpressi
 FString BPR_Extractor_Material::GetReadableNodeName(UMaterialExpression* Expr, int32 NodeId)
 {
 	if (!Expr)
-		return FString::Printf(TEXT("UnknownNode_%d"), NodeId);
+		return FString::Printf(TEXT("None_%d"), NodeId);
 
-	// Получаем имя класса
-	FString TypeName = Expr->GetClass()->GetName(); // например MaterialExpressionLinearInterpolate
+	FString TypeName = Expr->GetClass()->GetName();
+	TypeName.RemoveFromStart(TEXT("MaterialExpression"));
 
-	// Убираем префикс "MaterialExpression", если он есть
-	const FString Prefix = TEXT("MaterialExpression");
-	if (TypeName.StartsWith(Prefix))
+	// 1. Параметры
+	if (auto* Scalar = Cast<UMaterialExpressionScalarParameter>(Expr))
 	{
-		TypeName = TypeName.RightChop(Prefix.Len());
+		if (!Scalar->ParameterName.IsNone())
+			return FString::Printf(TEXT("ScalarParam_%s"), *Scalar->ParameterName.ToString());
+	}
+	else if (auto* Vector = Cast<UMaterialExpressionVectorParameter>(Expr))
+	{
+		if (!Vector->ParameterName.IsNone())
+			return FString::Printf(TEXT("VectorParam_%s"), *Vector->ParameterName.ToString());
+	}
+	else if (auto* Switch = Cast<UMaterialExpressionStaticSwitchParameter>(Expr))
+	{
+		if (!Switch->ParameterName.IsNone())
+			return FString::Printf(TEXT("StaticSwitch_%s"), *Switch->ParameterName.ToString());
+	}
+	// 2. FunctionCall
+	else if (auto* FuncCall = Cast<UMaterialExpressionMaterialFunctionCall>(Expr))
+	{
+		if (FuncCall->MaterialFunction)
+			return FString::Printf(TEXT("MF_%s"), *CleanName(FuncCall->MaterialFunction->GetName()));
+	}
+	// 3. Reroute
+	else if (auto* Decl = Cast<UMaterialExpressionNamedRerouteDeclaration>(Expr))
+	{
+		if (!Decl->Name.IsNone())
+			return FString::Printf(TEXT("Reroute_%s"), *Decl->Name.ToString());
 	}
 
+	// Фолбэк — тип + номер
 	return FString::Printf(TEXT("%s_%d"), *TypeName, NodeId);
 }
-
-void BPR_Extractor_Material::CollectNodesRecursive(
-	UMaterialExpression* Expr,
-	TSet<UMaterialExpression*>& Visited,
-	TArray<FString>& OutNodeNames,
-	TMap<UMaterialExpression*, int32>& NodeIds)
-{
-	if (!Expr || Visited.Contains(Expr))
-		return;
-
-	Visited.Add(Expr);
-
-	int32 NodeId = NodeIds[Expr];
-	OutNodeNames.Add(GetReadableNodeName(Expr, NodeId));
-
-	int32 NumInputs = Expr->CountInputs();
-	for (int32 i = 0; i < NumInputs; ++i)
-	{
-		FExpressionInput* Input = Expr->GetInput(i);
-		if (Input && Input->Expression)
-		{
-			CollectNodesRecursive(Input->Expression, Visited, OutNodeNames, NodeIds);
-		}
-	}
-}
-
 
 // Логгеры
 void BPR_Extractor_Material::LogWarning(const FString& Msg)
