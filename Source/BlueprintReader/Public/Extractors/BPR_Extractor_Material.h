@@ -103,6 +103,10 @@ private:
     
     bool IsTransparentExpression(UMaterialExpression* Expr);
     
+    bool IsLogicalSourceExpression(
+    UMaterialExpression* Expr
+);
+    
     // Возвращает первый НЕ-прозрачный expression вверх по цепочке
     // Может вернуть nullptr, если цепочка оборвана или зациклена
     UMaterialExpression* ResolveExpression(UMaterialExpression* Expr);

@@ -12,7 +12,11 @@
 #include "UObject/UnrealType.h" // FProperty, FStructProperty
 #include "Materials/MaterialParameterCollection.h"
 #include "Materials/MaterialParameterCollectionInstance.h"
-
+#include "Materials/MaterialexpressionTexturesampleparameter.h"
+#include "Materials/MaterialExpressionConstant2Vector.h"
+#include "Materials/MaterialExpressionConstant3Vector.h"
+#include "Materials/MaterialExpressionConstant4Vector.h"
+#include "Materials/MaterialExpressionStaticSwitch.h"
 
 BPR_Extractor_Material::BPR_Extractor_Material() {}
 BPR_Extractor_Material::~BPR_Extractor_Material() {}
@@ -325,23 +329,35 @@ void BPR_Extractor_Material::AppendMaterialOutput(
 	}
 
 	TArray<FString> DirectNames;
+	TSet<UMaterialExpression*> AddedExpressions; // защита от дублей
 
 	for (UMaterialExpression* Expr : DirectExpressions)
 	{
 		if (!Expr)
 			continue;
 
-		// 🔹 НОВОЕ: разрешаем логический источник
+		// 1️⃣ Разрешаем технические ноды (Reroute, Transparent, etc.)
 		UMaterialExpression* ResolvedExpr = ResolveExpression(Expr);
 		if (!ResolvedExpr)
 			continue;
 
-		// Добавляем в DAG уже логическую ноду
+		// 2️⃣ Фильтруем: оставляем только логические источники
+		if (!IsLogicalSourceExpression(ResolvedExpr))
+			continue;
+
+		// 3️⃣ Защита от повторов
+		if (AddedExpressions.Contains(ResolvedExpr))
+			continue;
+
+		AddedExpressions.Add(ResolvedExpr);
+
+		// 4️⃣ Добавляем в DAG (со всеми зависимостями)
 		if (!NodeIds.Contains(ResolvedExpr))
 		{
 			ProcessExpressionDAG(ResolvedExpr, NodeIds, NodeTexts, NextId);
 		}
 
+		// 5️⃣ Добавляем читаемое имя в вывод
 		DirectNames.Add(
 			GetReadableNodeName(ResolvedExpr, NodeIds[ResolvedExpr])
 		);
@@ -356,7 +372,6 @@ void BPR_Extractor_Material::AppendMaterialOutput(
 	FString Joined = FString::Join(DirectNames, TEXT(", "));
 	OutText += FString::Printf(TEXT("%s → %s\n"), *OutputName, *Joined);
 }
-
 
 
 void BPR_Extractor_Material::AppendMaterialInstanceOverrides(UMaterialInstance* Instance, FString& OutText)
@@ -659,6 +674,35 @@ FString BPR_Extractor_Material::GetReadableNodeName(UMaterialExpression* Expr, i
 	// Фолбэк — тип + номер
 	return FString::Printf(TEXT("%s_%d"), *TypeName, NodeId);
 }
+
+bool BPR_Extractor_Material::IsLogicalSourceExpression(
+	UMaterialExpression* Expr
+)
+{
+	if (!Expr)
+		return false;
+
+	if (Cast<UMaterialExpressionScalarParameter>(Expr)) return true;
+	if (Cast<UMaterialExpressionVectorParameter>(Expr)) return true;
+	if (Cast<UMaterialExpressionTextureSampleParameter>(Expr)) return true;
+	if (Cast<UMaterialExpressionStaticSwitchParameter>(Expr)) return true;
+
+	if (Cast<UMaterialExpressionConstant>(Expr)) return true;
+	if (Cast<UMaterialExpressionConstant2Vector>(Expr)) return true;
+	if (Cast<UMaterialExpressionConstant3Vector>(Expr)) return true;
+	if (Cast<UMaterialExpressionConstant4Vector>(Expr)) return true;
+
+	if (Cast<UMaterialExpressionStaticSwitch>(Expr)) return true;
+
+	if (auto* Func = Cast<UMaterialExpressionMaterialFunctionCall>(Expr))
+	{
+		// позже можно уточнить имя функции
+		return true;
+	}
+
+	return false;
+}
+
 
 // Логгеры
 void BPR_Extractor_Material::LogWarning(const FString& Msg)
