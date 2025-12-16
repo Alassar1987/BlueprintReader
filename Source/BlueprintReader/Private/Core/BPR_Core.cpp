@@ -44,8 +44,7 @@ bool BPR_Core::IsSupportedAsset(UObject* Object)
             {
                 CachedType = EAssetType::Widget;
                 return true;
-            }
-            
+            }            
             
         }
     }

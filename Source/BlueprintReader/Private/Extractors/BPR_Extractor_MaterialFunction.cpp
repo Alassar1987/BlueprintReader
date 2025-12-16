@@ -1,30 +1,32 @@
 #include "Extractors/BPR_Extractor_MaterialFunction.h"
+#include "Core/BPR_Core.h"
 #include "Materials/MaterialFunction.h"
 #include "Materials/MaterialFunctionInstance.h"
 #include "Materials/MaterialExpression.h"
 #include "Materials/MaterialExpressionFunctionInput.h"
+#include "Materials/MaterialExpression.h"
+#include "Materials/MaterialExpressionScalarParameter.h"
+#include "Materials/MaterialExpressionVectorParameter.h"
+#include "Materials/MaterialExpressionConstant.h"
+#include "MaterialExpressionIO.h"
+#include "Materials/MaterialExpressionReroute.h"
+#include "Materials/MaterialExpressionNamedReroute.h"
+#include "Materials/MaterialExpressionStaticSwitchParameter.h"
+#include "UObject/UnrealType.h"
+#include "Materials/MaterialexpressionTexturesampleparameter.h"
+#include "Materials/MaterialExpressionConstant2Vector.h"
+#include "Materials/MaterialExpressionConstant3Vector.h"
+#include "Materials/MaterialExpressionConstant4Vector.h"
+#include "Materials/MaterialExpressionStaticSwitch.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
 
-#include "Materials/MaterialExpression.h"
-#include "Materials/MaterialExpressionComment.h"
-#include "Materials/MaterialExpressionTextureSample.h" // если хотим показывать текстуры
-#include "Engine/Texture.h" // для получения имен текстур
-
-#include "Materials/MaterialFunctionInterface.h" // для GetExpressions()
-#include "UObject/ObjectPtr.h"                   // для TObjectPtr
-#include "Containers/ArrayView.h"                // для TConstArrayView
-
-
-
-
-#include "Engine/Engine.h"
 
 BPR_Extractor_MaterialFunction::BPR_Extractor_MaterialFunction() {}
 BPR_Extractor_MaterialFunction::~BPR_Extractor_MaterialFunction() {}
 
 void BPR_Extractor_MaterialFunction::ProcessMaterialFunction(UObject* SelectedObject, FBPR_ExtractedData& OutData)
 {
-#if WITH_EDITOR
+    // Пока пусто, просто логика проверки
     if (!SelectedObject)
     {
         LogError(TEXT("SelectedObject is null!"));
@@ -33,374 +35,741 @@ void BPR_Extractor_MaterialFunction::ProcessMaterialFunction(UObject* SelectedOb
         return;
     }
 
-    FString TmpTextStructure;
-    FString TmpTextExpressions;
+    UMaterialFunction* Function = Cast<UMaterialFunction>(SelectedObject);
+    UMaterialFunctionInstance* Instance = Cast<UMaterialFunctionInstance>(SelectedObject);
 
-    if (IsMaterialFunction(SelectedObject))
+    if (!Function && !Instance)
     {
-        UMaterialFunction* Func = Cast<UMaterialFunction>(SelectedObject);
-        TmpTextStructure += FString::Printf(TEXT("# Material Function Export: %s\n\n"), *Func->GetName());
-
-        // Структура (inputs + outputs)
-        ExtractMaterialFunction(Func, TmpTextStructure);
-
-        // Граф (Expression-ноды)
-        AppendFunctionExpressions(Func, TmpTextExpressions);
-    }
-    else if (IsMaterialFunctionInstance(SelectedObject))
-    {
-        UMaterialFunctionInstance* Instance = Cast<UMaterialFunctionInstance>(SelectedObject);
-        TmpTextStructure += FString::Printf(TEXT("# Material Function Instance Export: %s\n\n"), *Instance->GetName());
-
-        ExtractMaterialFunctionInstance(Instance, TmpTextStructure);
-
-        // Графа для экземпляра функции нет
-    }
-    else
-    {
-        LogWarning(TEXT("Selected object is not a Material Function or Material Function Instance."));
-        TmpTextStructure = TEXT("Warning: Selected object is not a Material Function or Material Function Instance.");
-        TmpTextExpressions = TmpTextStructure;
+        LogWarning(TEXT("Selected object is not a MaterialFunction or MaterialFunctionInstance."));
+        OutData.Structure = FText::FromString("Warning: Selected object is not a MaterialFunction or MaterialFunctionInstance.");
+        OutData.Graph = FText::FromString("Warning: Selected object is not a MaterialFunction or MaterialFunctionInstance.");
+        return;
     }
 
-    OutData.Structure = FText::FromString(TmpTextStructure);
-    OutData.Graph = FText::FromString(TmpTextExpressions);
-#endif
+    FString TmpStructure;
+    FString TmpGraph;
+
+    if (Function)
+    {
+        AppendFunctionInfo(Function, TmpStructure);
+        AppendFunctionInputs(Function, TmpStructure);
+        AppendFunctionOutputs(Function, TmpStructure);
+        AppendFunctionGraph(Function, TmpGraph);
+    }
+
+    if (Instance)
+    {
+        AppendFunctionInstanceInfo(Instance, TmpStructure);
+        AppendFunctionInstanceOverrides(Instance, TmpStructure);
+        UMaterialFunction* ParentFunc = Cast<UMaterialFunction>(Instance->Base);
+
+        if (ParentFunc)
+        {
+            AppendFunctionGraph(ParentFunc, TmpGraph);
+        }
+    }
+
+    OutData.Structure = FText::FromString(TmpStructure);
+    OutData.Graph = FText::FromString(TmpGraph);
 }
 
-
-// ----------------------------------------------------------
-// Проверки типов
-// ----------------------------------------------------------
-
-bool BPR_Extractor_MaterialFunction::IsMaterialFunction(UObject* Obj) const
-{
-    return Obj && Obj->IsA<UMaterialFunction>();
-}
-
-bool BPR_Extractor_MaterialFunction::IsMaterialFunctionInstance(UObject* Obj) const
-{
-    return Obj && Obj->IsA<UMaterialFunctionInstance>();
-}
-
-// ----------------------------------------------------------
-// Основные обработчики
-// ----------------------------------------------------------
-
-void BPR_Extractor_MaterialFunction::ExtractMaterialFunction(UMaterialFunction* Function, FString& OutText)
+//==============================================================================
+// Структура Material Function
+//==============================================================================
+void BPR_Extractor_MaterialFunction::AppendFunctionInfo(UMaterialFunction* Function, FString& OutText)
 {
     if (!Function) return;
 
-    AppendFunctionInputs(Function, OutText);
-    OutText += TEXT("\n");
-
-    AppendFunctionOutputs(Function, OutText);
-    OutText += TEXT("\n");
-
-    AppendFunctionExpressions(Function, OutText);
+    OutText += FString::Printf(TEXT("MaterialFunction: %s\n"), *CleanName(Function->GetName()));
+    if (!Function->Description.IsEmpty())
+        OutText += FString::Printf(TEXT("Description: %s\n"), *Function->Description);
+    OutText += FString::Printf(TEXT("Exposed to Library: %s\n"), Function->bExposeToLibrary ? TEXT("True") : TEXT("False"));
     OutText += TEXT("\n");
 }
 
-void BPR_Extractor_MaterialFunction::ExtractMaterialFunctionInstance(UMaterialFunctionInstance* Instance, FString& OutText)
-{
-    if (!Instance) return;
-
-    UObject* Parent = Instance->Parent;
-    OutText += FString::Printf(TEXT("**Parent Function:** %s\n\n"),
-        Parent ? *Parent->GetName() : TEXT("None"));
-
-    AppendInstanceOverrides(Instance, OutText);
-}
-
-// ----------------------------------------------------------
-// Подсекции (пока пустые заглушки — наполним позже)
-// ----------------------------------------------------------
 
 void BPR_Extractor_MaterialFunction::AppendFunctionInputs(UMaterialFunction* Function, FString& OutText)
 {
-#if WITH_EDITOR
+    if (!Function) return;
 
-    OutText += TEXT("## Inputs\n\n");
+    OutText += TEXT("## Function Inputs\n");
 
-    if (!Function)
+    // Перебираем все Expression внутри функции
+    TArray<UMaterialExpression*> AllExpressions;
+    for (UMaterialExpression* Expr : Function->GetExpressions())
     {
-        OutText += TEXT("Function is null.\n\n");
-        return;
-    }
-
-    // Получаем view на список выражений внутри функции (UE5.7)
-    auto ExpressionsView = Function->GetExpressions();
-
-    // Собираем ноды типа UMaterialExpressionFunctionInput
-    TArray<UMaterialExpressionFunctionInput*> InputNodes;
-    InputNodes.Reserve(ExpressionsView.Num());
-
-    for (TObjectPtr<UMaterialExpression> ExprPtr : ExpressionsView)
-    {
-        UMaterialExpression* Expr = ExprPtr.Get();
-        if (!Expr) continue;
-
-        if (UMaterialExpressionFunctionInput* InputNode = Cast<UMaterialExpressionFunctionInput>(Expr))
+        if (Expr && Expr->IsA<UMaterialExpressionFunctionInput>())
         {
-            InputNodes.Add(InputNode);
+            AllExpressions.Add(Expr);
         }
     }
 
-    if (InputNodes.Num() == 0)
-    {
-        OutText += TEXT("_This function has no inputs._\n\n");
-        return;
-    }
 
-    int32 Index = 1;
-    for (UMaterialExpressionFunctionInput* Input : InputNodes)
+    for (UMaterialExpression* Expr : AllExpressions)
     {
+        auto* Input = Cast<UMaterialExpressionFunctionInput>(Expr);
         if (!Input) continue;
 
-        FString Name = Input->InputName.IsNone() ? TEXT("UnnamedInput") : Input->InputName.ToString();
-        OutText += FString::Printf(TEXT("### %d) %s\n"), Index++, *Name);
+        FString InputName = Input->InputName.IsNone() ? TEXT("Unnamed") : Input->InputName.ToString();
+        FString InputType;
 
-        // Тип входа — GetInputTypeDisplayName возвращает FString в UE5.x
+        switch (Input->InputType)
         {
-            FString TypeStr = UMaterialExpressionFunctionInput::GetInputTypeDisplayName(static_cast<EFunctionInputType>(Input->InputType));
-            OutText += FString::Printf(TEXT("- **Type:** %s\n"), *TypeStr);
+        case FunctionInput_Scalar: InputType = TEXT("Scalar"); break;
+        case FunctionInput_Vector2: InputType = TEXT("Vector2"); break;
+        case FunctionInput_Vector3: InputType = TEXT("Vector3"); break;
+        case FunctionInput_Vector4: InputType = TEXT("Vector4"); break;
+        case FunctionInput_Texture2D: InputType = TEXT("Texture2D"); break;
+        case FunctionInput_TextureCube: InputType = TEXT("TextureCube"); break;
+        default: InputType = TEXT("Unknown"); break;
         }
 
-        // Default / Preview value (если используется)
-        if (Input->bUsePreviewValueAsDefault)
+        FString DefaultValueStr = TEXT("");
+        if (Input->InputType == FunctionInput_Scalar)
         {
-            // PreviewValue — обычно FVector4f / FLinearColor-совместимый
-            // Приводим к double для корректного форматирования
-            const auto& V = Input->PreviewValue;
-            OutText += FString::Printf(TEXT("- **Default (preview):** (%.6g, %.6g, %.6g, %.6g)\n"),
-                                      static_cast<double>(V.X), static_cast<double>(V.Y),
-                                      static_cast<double>(V.Z), static_cast<double>(V.W));
+            DefaultValueStr = FString::Printf(TEXT("Default = %.3f"), Input->PreviewValue.X);
         }
-        else
+        else if (Input->InputType == FunctionInput_Vector3 || Input->InputType == FunctionInput_Vector4)
         {
-            OutText += TEXT("- **Default:** None\n");
+            DefaultValueStr = FString::Printf(TEXT("Default = (%.3f, %.3f, %.3f, %.3f)"),
+                Input->PreviewValue.X, Input->PreviewValue.Y, Input->PreviewValue.Z, Input->PreviewValue.W);
         }
 
-        // Sort priority
-        OutText += FString::Printf(TEXT("- **SortPriority:** %d\n"), Input->SortPriority);
-
-        // Optional: preview expression
-        if (Input->Preview.Expression)
-        {
-            if (UMaterialExpression* PreviewExpr = Input->Preview.Expression)
-            {
-                OutText += FString::Printf(TEXT("- **Preview connected to:** %s\n"), *PreviewExpr->GetClass()->GetName());
-            }
-        }
-
-        OutText += TEXT("\n");
+        OutText += FString::Printf(TEXT("%s (%s) %s\n"), *InputName, *InputType, *DefaultValueStr);
     }
 
-#endif // WITH_EDITOR
+    OutText += TEXT("\n");
 }
-
-
-
 
 void BPR_Extractor_MaterialFunction::AppendFunctionOutputs(UMaterialFunction* Function, FString& OutText)
 {
-#if WITH_EDITOR
+    if (!Function) return;
 
-    OutText += TEXT("## Outputs\n\n");
+    OutText += TEXT("## Function Outputs\n");
 
-    if (!Function)
+    // Получаем все ExpressionOutput ноды
+    TArray<UMaterialExpression*> AllExpressions;
+    for (UObject* Obj : Function->GetExpressions())
     {
-        OutText += TEXT("Function is null.\n");
-        return;
-    }
-
-    TArrayView<const TObjectPtr<UMaterialExpression>> Expressions = Function->GetExpressions();
-
-    TArray<UMaterialExpressionFunctionOutput*> Outputs;
-
-    for (UMaterialExpression* Expr : Expressions)
-    {
-        if (auto* Out = Cast<UMaterialExpressionFunctionOutput>(Expr))
+        if (UMaterialExpression* Expr = Cast<UMaterialExpression>(Obj))
         {
-            Outputs.Add(Out);
+            AllExpressions.Add(Expr);
         }
     }
 
-    if (Outputs.Num() == 0)
+
+    for (UMaterialExpression* Expr : AllExpressions)
     {
-        OutText += TEXT("_This function has no outputs._\n");
+        if (!Expr) continue;
+
+        // Только FunctionOutput
+        if (auto* Output = Cast<UMaterialExpressionFunctionOutput>(Expr))
+        {
+            FString OutputName = !Output->OutputName.IsNone() 
+                                 ? Output->OutputName.ToString() 
+                                 : TEXT("UnnamedOutput");
+
+            // Получаем Expression, подключенный к Output
+            FString ConnectedExprName = TEXT("None");
+            if (Output->A.Expression)
+            {
+                ConnectedExprName = GetReadableNodeName(Output->A.Expression, 0); // NodeId = 0, т.к. неважно здесь
+            }
+
+            OutText += FString::Printf(TEXT("Output: %s -> %s\n"), *OutputName, *ConnectedExprName);
+        }
+    }
+
+    OutText += TEXT("\n");
+}
+
+void BPR_Extractor_MaterialFunction::AppendFunctionInstanceInfo(UMaterialFunctionInstance* Instance, FString& OutText)
+{
+    if (!Instance) return;
+
+    OutText += FString::Printf(TEXT("MaterialFunctionInstance: %s\n"), *CleanName(Instance->GetName()));
+
+    // Родительская функция
+    UMaterialFunctionInterface* ParentFuncInterface = Instance->Parent;
+    if (ParentFuncInterface)
+    {
+        // Пробуем каст к UMaterialFunction
+        if (UMaterialFunction* ParentFunc = Cast<UMaterialFunction>(ParentFuncInterface))
+        {
+            OutText += FString::Printf(TEXT("Parent Function: %s\n"), *CleanName(ParentFunc->GetName()));
+        }
+    }
+
+    OutText += TEXT("\n");
+}
+
+void BPR_Extractor_MaterialFunction::AppendFunctionInstanceOverrides(UMaterialFunctionInstance* Instance, FString& OutText)
+{
+    if (!Instance) return;
+
+    OutText += TEXT("## FunctionInstance Parameters\n");
+
+    UMaterialFunctionInterface* ParentInterface = Instance->Base.Get();
+    if (!ParentInterface)
+    {
+        OutText += TEXT("No parent function.\n\n");
         return;
     }
 
-    for (int32 i = 0; i < Outputs.Num(); ++i)
+    for (UMaterialExpression* Expr : ParentInterface->GetExpressions())
     {
-        const UMaterialExpressionFunctionOutput* Output = Outputs[i];
-
-        FString Name = Output->OutputName.IsNone()
-            ? TEXT("UnnamedOutput")
-            : Output->OutputName.ToString();
-
-        OutText += FString::Printf(TEXT("### %d) %s\n"), i + 1, *Name);
-
-        OutText += FString::Printf(TEXT("- **SortPriority:** %d\n"), Output->SortPriority);
-        OutText += FString::Printf(TEXT("- **Previewed:** %s\n"), Output->bLastPreviewed ? TEXT("true") : TEXT("false"));
-
-        // Проверяем подключение
-        if (Output->A.Expression)
+        if (auto* Input = Cast<UMaterialExpressionFunctionInput>(Expr))
         {
-            OutText += FString::Printf(
-                TEXT("- **Connected from:** %s\n"),
-                *Output->A.Expression->GetClass()->GetName()
-            );
+            FString ParamName = Input->InputName.ToString();
+
+            switch (Input->InputType)
+            {
+            case EFunctionInputType::FunctionInput_Scalar:
+                OutText += FString::Printf(TEXT("Scalar: %s = %.3f\n"), *ParamName, Input->PreviewValue.X);
+                break;
+
+            case EFunctionInputType::FunctionInput_Vector2:
+                OutText += FString::Printf(TEXT("Vector2: %s = (%f,%f)\n"),
+                    *ParamName,
+                    Input->PreviewValue.X,
+                    Input->PreviewValue.Y);
+                break;
+
+            case EFunctionInputType::FunctionInput_Vector3:
+                OutText += FString::Printf(TEXT("Vector3: %s = (%f,%f,%f)\n"),
+                    *ParamName,
+                    Input->PreviewValue.X,
+                    Input->PreviewValue.Y,
+                    Input->PreviewValue.Z);
+                break;
+
+            case EFunctionInputType::FunctionInput_Vector4:
+                OutText += FString::Printf(TEXT("Vector4: %s = (%f,%f,%f,%f)\n"),
+                    *ParamName,
+                    Input->PreviewValue.X,
+                    Input->PreviewValue.Y,
+                    Input->PreviewValue.Z,
+                    Input->PreviewValue.W);
+                break;
+
+            case EFunctionInputType::FunctionInput_Bool:
+            case EFunctionInputType::FunctionInput_StaticBool:
+                OutText += FString::Printf(TEXT("Bool: %s = %s\n"),
+                    *ParamName,
+                    Input->PreviewValue.X > 0.5f ? TEXT("True") : TEXT("False"));
+                break;
+
+            case EFunctionInputType::FunctionInput_Texture2D:
+            case EFunctionInputType::FunctionInput_TextureCube:
+            case EFunctionInputType::FunctionInput_Texture2DArray:
+            case EFunctionInputType::FunctionInput_VolumeTexture:
+            case EFunctionInputType::FunctionInput_TextureExternal:
+                {
+                    FString TexName = Input->GetReferencedTexture() ? Input->GetReferencedTexture()->GetName() : TEXT("None");
+                    OutText += FString::Printf(TEXT("Texture: %s = %s\n"), *ParamName, *TexName);
+                    break;
+                }
+
+            case EFunctionInputType::FunctionInput_MaterialAttributes:
+                OutText += FString::Printf(TEXT("MaterialAttributes: %s\n"), *ParamName);
+                break;
+
+            case EFunctionInputType::FunctionInput_Substrate:
+                OutText += FString::Printf(TEXT("Substrate: %s\n"), *ParamName);
+                break;
+
+            default:
+                OutText += FString::Printf(TEXT("UnknownType: %s\n"), *ParamName);
+                break;
+            }
+    
+        }
+    }
+
+    OutText += TEXT("\n");
+}
+
+
+
+
+//==============================================================================
+// Graph
+//==============================================================================
+void BPR_Extractor_MaterialFunction::AppendFunctionGraph(UMaterialFunction* Function, FString& OutText)
+{
+    if (!Function) return;
+
+    OutText += TEXT("## Function Graph\n");
+
+    // DAG структуры
+    TMap<UMaterialExpression*, int32> NodeIds;
+    TMap<int32, FString> NodeTexts;
+    int32 NextId = 1;
+
+    // Получаем все output-выражения функции
+    TArray<UMaterialExpression*> FunctionOutputs;
+    for (UMaterialExpression* Expr : Function->GetExpressions())
+    {
+        if (Expr && Expr->IsA<UMaterialExpressionFunctionOutput>())
+        {
+            FunctionOutputs.Add(Expr);
+        }
+    }
+
+    // Обрабатываем каждый output
+    for (UMaterialExpression* OutputExpr : FunctionOutputs)
+    {
+        if (!OutputExpr) continue;
+
+        FString OutputName = Cast<UMaterialExpressionFunctionOutput>(OutputExpr)->GetName();
+
+        TArray<UMaterialExpression*> DirectExpressions;
+
+        // У FunctionOutput обычно есть только один вход
+        if (OutputExpr->GetInput(0) && OutputExpr->GetInput(0)->Expression)
+        {
+            DirectExpressions.Add(OutputExpr->GetInput(0)->Expression);
+        }
+
+        AppendFunctionOutput(OutputName, DirectExpressions, OutText, NodeIds, NodeTexts, NextId);
+    }
+
+    // Добавляем все ноды в итоговый текст
+    OutText += TEXT("\n## Nodes\n");
+    for (auto& Pair : NodeTexts)
+    {
+        OutText += Pair.Value;
+    }
+}
+
+
+void BPR_Extractor_MaterialFunction::AppendFunctionOutput(
+    const FString& OutputName,
+    const TArray<UMaterialExpression*>& DirectExpressions,
+    FString& OutText,
+    TMap<UMaterialExpression*, int32>& NodeIds,
+    TMap<int32, FString>& NodeTexts,
+    int32& NextId
+)
+{
+    if (DirectExpressions.Num() == 0)
+    {
+        OutText += FString::Printf(TEXT("%s → None\n"), *OutputName);
+        return;
+    }
+
+    TArray<FString> DirectNames;
+    TSet<UMaterialExpression*> AddedExpressions;
+
+    for (UMaterialExpression* Expr : DirectExpressions)
+    {
+        if (!Expr)
+            continue;
+
+        // 1️⃣ Разрешаем прозрачные ноды
+        UMaterialExpression* ResolvedExpr = ResolveExpression(Expr);
+        if (!ResolvedExpr)
+            continue;
+
+        // 2️⃣ Фильтруем логические источники
+        if (!IsLogicalSourceExpression(ResolvedExpr))
+            continue;
+
+        // 3️⃣ Защита от повторов
+        if (AddedExpressions.Contains(ResolvedExpr))
+            continue;
+
+        AddedExpressions.Add(ResolvedExpr);
+
+        // 4️⃣ Добавляем в DAG
+        if (!NodeIds.Contains(ResolvedExpr))
+        {
+            ProcessExpressionDAG(ResolvedExpr, NodeIds, NodeTexts, NextId);
+        }
+
+        // 5️⃣ Читаемое имя
+        DirectNames.Add(GetReadableNodeName(ResolvedExpr, NodeIds[ResolvedExpr]));
+    }
+
+    if (DirectNames.Num() == 0)
+    {
+        OutText += FString::Printf(TEXT("%s → None\n"), *OutputName);
+        return;
+    }
+
+    FString Joined = FString::Join(DirectNames, TEXT(", "));
+    OutText += FString::Printf(TEXT("%s → %s\n"), *OutputName, *Joined);
+}
+
+
+void BPR_Extractor_MaterialFunction::ProcessExpressionDAG(
+    UMaterialExpression* Expression,
+    TMap<UMaterialExpression*, int32>& NodeIds,
+    TMap<int32, FString>& NodeTexts,
+    int32& NextId)
+{
+    if (!Expression)
+        return;
+
+    // Уже обработано
+    if (NodeIds.Contains(Expression))
+        return;
+
+    int32 NodeId = NextId++;
+    NodeIds.Add(Expression, NodeId);
+
+    FString NodeDisplayName = GetReadableNodeName(Expression, NodeId);
+    FString NodeText = FString::Printf(TEXT("Node: %s\n"), *NodeDisplayName);
+
+    int32 NumInputs = Expression->CountInputs();
+    for (int32 i = 0; i < NumInputs; ++i)
+    {
+        FExpressionInput* Input = Expression->GetInput(i);
+        if (!Input) continue;
+
+        FString InputName = Expression->GetInputName(i).ToString();
+
+        if (Input->Expression)
+        {
+            UMaterialExpression* ChildExpr = Input->Expression;
+
+            // Рекурсивный обход
+            ProcessExpressionDAG(ChildExpr, NodeIds, NodeTexts, NextId);
+
+            int32 ChildId = NodeIds[ChildExpr];
+            FString ChildDisplayName = GetReadableNodeName(ChildExpr, ChildId);
+            NodeText += FString::Printf(TEXT("  Input: %s -> %s\n"), *InputName, *ChildDisplayName);
         }
         else
         {
-            OutText += TEXT("- **Connected from:** _None_\n");
+            NodeText += FString::Printf(TEXT("  Input: %s = Unconnected\n"), *InputName);
         }
-
-        OutText += TEXT("\n");
     }
 
-#endif // WITH_EDITOR
+    NodeTexts.Add(NodeId, NodeText);
 }
 
 
-void BPR_Extractor_MaterialFunction::AppendFunctionExpressions(UMaterialFunction* Function, FString& OutText)
+//==============================================================================
+// Helpers
+//==============================================================================
+FString BPR_Extractor_MaterialFunction::GetReadableExpressionName(UMaterialExpression* Expression)
 {
-#if WITH_EDITOR
-    OutText += TEXT("## Expressions\n\n");
+    if (!Expression)
+        return TEXT("None");
 
-    if (!Function)
+    // 1. Базовый тип
+    FString ClassName = Expression->GetClass()->GetName();
+    ClassName.RemoveFromStart(TEXT("MaterialExpression"));
+
+    FString Result = ClassName;
+
+    // 2. Частные случаи (важные для MF)
+    if (auto* Scalar = Cast<UMaterialExpressionScalarParameter>(Expression))
     {
-        OutText += TEXT("Function is null.\n");
-        return;
+        Result = FString::Printf(
+            TEXT("ScalarParam(%s = %.3f)"),
+            *Scalar->ParameterName.ToString(),
+            Scalar->DefaultValue
+        );
+    }
+    else if (auto* Vector = Cast<UMaterialExpressionVectorParameter>(Expression))
+    {
+        Result = FString::Printf(
+            TEXT("VectorParam(%s)"),
+            *Vector->ParameterName.ToString()
+        );
+    }
+    else if (auto* Const = Cast<UMaterialExpressionConstant>(Expression))
+    {
+        Result = FString::Printf(
+            TEXT("Constant(%.3f)"),
+            Const->R
+        );
+    }
+    else if (auto* FuncInput = Cast<UMaterialExpressionFunctionInput>(Expression))
+    {
+        Result = FString::Printf(
+            TEXT("FunctionInput(%s)"),
+            *FuncInput->InputName.ToString()
+        );
+    }
+    else if (auto* FuncOutput = Cast<UMaterialExpressionFunctionOutput>(Expression))
+    {
+        Result = FString::Printf(
+            TEXT("FunctionOutput(%s)"),
+            *FuncOutput->OutputName.ToString()
+        );
     }
 
-    TConstArrayView<TObjectPtr<UMaterialExpression>> Expressions = Function->GetExpressions();
-
-    for (int32 i = 0; i < Expressions.Num(); ++i)
+    // 3. Комментарий
+    if (!Expression->Desc.IsEmpty())
     {
-        UMaterialExpression* Expr = Expressions[i].Get(); // TObjectPtr -> обычный указатель
-        if (!Expr) continue;
-
-        FString ExprName = Expr->GetName();
-        FString ExprClass = Expr->GetClass()->GetName();
-
-        OutText += FString::Printf(TEXT("### %d) %s (%s)\n"), i + 1, *ExprName, *ExprClass);
-
-        if (UMaterialExpressionFunctionInput* Input = Cast<UMaterialExpressionFunctionInput>(Expr))
-        {
-            FString InputNameStr = Input->InputName.IsNone() ? TEXT("UnnamedInput") : Input->InputName.ToString();
-            OutText += FString::Printf(TEXT("- Input Name: %s\n"), *InputNameStr);
-        }
-        else if (UMaterialExpressionFunctionOutput* Output = Cast<UMaterialExpressionFunctionOutput>(Expr))
-        {
-            FString OutputNameStr = Output->OutputName.IsNone() ? TEXT("UnnamedOutput") : Output->OutputName.ToString();
-            OutText += FString::Printf(TEXT("- Output Name: %s\n"), *OutputNameStr);
-        }
-        else if (UMaterialExpressionComment* Comment = Cast<UMaterialExpressionComment>(Expr))
-        {
-            FString CommentStr = Comment->Text; // FText -> FString
-            OutText += FString::Printf(TEXT("- Comment: %s\n"), *CommentStr);
-        }
-        else if (UMaterialExpressionTextureSample* Tex = Cast<UMaterialExpressionTextureSample>(Expr))
-        {
-            FString TexName = Tex->Texture ? Tex->Texture->GetName() : TEXT("None");
-            OutText += FString::Printf(TEXT("- Texture: %s\n"), *TexName);
-        }
-
-        OutText += TEXT("\n");
+        Result += FString::Printf(TEXT(" // %s"), *Expression->Desc);
     }
-#endif
+
+    return Result;
 }
 
 
 
-
-
-void BPR_Extractor_MaterialFunction::AppendInstanceOverrides(UMaterialFunctionInstance* Instance, FString& OutText)
+FString BPR_Extractor_MaterialFunction::GetExpressionInputs(
+    UMaterialExpression* Expression,
+    int32 IndentLevel
+)
 {
-#if WITH_EDITOR
-    OutText += TEXT("## Parameter Overrides\n\n");
+    if (!Expression) return TEXT("");
 
-    if (!Instance)
+    FString Indent = MakeIndent(IndentLevel);
+    FString Result;
+
+    int32 NumInputs = Expression->CountInputs();
+    for (int32 i = 0; i < NumInputs; ++i)
     {
-        OutText += TEXT("_Instance is null._\n");
-        return;
+        FExpressionInput* Input = Expression->GetInput(i);
+        if (!Input) continue;
+
+        FString InputName = Expression->GetInputName(i).ToString();
+        FString InputDesc = GetInputValueDescription(*Input);
+
+        Result += FString::Printf(TEXT("%sInput: %s -> %s\n"), 
+            *Indent, *InputName, *InputDesc);
     }
 
-    // ----------------------------------------------------------
-    // Scalar Parameters
-    // ----------------------------------------------------------
-    if (Instance->ScalarParameterValues.Num() > 0)
-    {
-        OutText += TEXT("### Scalar Parameters\n\n");
-        for (const FScalarParameterValue& Param : Instance->ScalarParameterValues)
-        {
-            FString NameStr = Param.ParameterInfo.Name.IsNone() ? TEXT("Unnamed") : Param.ParameterInfo.Name.ToString();
-            OutText += FString::Printf(TEXT("- %s: %.6g\n"), *NameStr, Param.ParameterValue);
-        }
-        OutText += TEXT("\n");
-    }
-
-    // ----------------------------------------------------------
-    // Vector Parameters
-    // ----------------------------------------------------------
-    if (Instance->VectorParameterValues.Num() > 0)
-    {
-        OutText += TEXT("### Vector Parameters\n\n");
-        for (const FVectorParameterValue& Param : Instance->VectorParameterValues)
-        {
-            FString NameStr = Param.ParameterInfo.Name.IsNone() ? TEXT("Unnamed") : Param.ParameterInfo.Name.ToString();
-            const FLinearColor& V = Param.ParameterValue;
-            OutText += FString::Printf(TEXT("- %s: (%.6g, %.6g, %.6g, %.6g)\n"), 
-                                       *NameStr, V.R, V.G, V.B, V.A);
-        }
-        OutText += TEXT("\n");
-    }
-
-    // ----------------------------------------------------------
-    // Texture Parameters
-    // ----------------------------------------------------------
-    if (Instance->TextureParameterValues.Num() > 0)
-    {
-        OutText += TEXT("### Texture Parameters\n\n");
-        for (const FTextureParameterValue& Param : Instance->TextureParameterValues)
-        {
-            FString NameStr = Param.ParameterInfo.Name.IsNone() ? TEXT("Unnamed") : Param.ParameterInfo.Name.ToString();
-            FString TexName = Param.ParameterValue ? Param.ParameterValue->GetName() : TEXT("None");
-            OutText += FString::Printf(TEXT("- %s: %s\n"), *NameStr, *TexName);
-        }
-        OutText += TEXT("\n");
-    }
-
-    // Если вообще нет переопределенных параметров
-    if (Instance->ScalarParameterValues.Num() == 0 &&
-        Instance->VectorParameterValues.Num() == 0 &&
-        Instance->TextureParameterValues.Num() == 0)
-    {
-        OutText += TEXT("_No parameter overrides found._\n\n");
-    }
-#endif // WITH_EDITOR
+    return Result;
 }
 
 
 
-// ----------------------------------------------------------
-// Логирование
-// ----------------------------------------------------------
-
-void BPR_Extractor_MaterialFunction::LogMessage(const FString& Msg)
+FString BPR_Extractor_MaterialFunction::GetInputValueDescription(
+    const FExpressionInput& Input
+)
 {
-    UE_LOG(LogTemp, Log, TEXT("[BPRBPR_Extractor_MaterialFunction] %s"), *Msg);
+    if (Input.Expression)
+    {
+        return FString::Printf(
+            TEXT("<linked: %s>"),
+            *GetReadableExpressionName(Input.Expression)
+        );
+    }
+
+    return TEXT("Unconnected");
 }
 
-void BPR_Extractor_MaterialFunction::LogWarning(const FString& Msg)
+
+bool BPR_Extractor_MaterialFunction::HasAnyInputs(UMaterialExpression* Expression)
 {
-    UE_LOG(LogTemp, Warning, TEXT("[BPRBPR_Extractor_MaterialFunction] %s"), *Msg);
+    if (!Expression)
+        return false;
+
+    // Function Input — точка входа, не вычислительная нода
+    if (Expression->IsA<UMaterialExpressionFunctionInput>())
+        return false;
+
+    // Function Output — всегда имеет вход
+    if (Expression->IsA<UMaterialExpressionFunctionOutput>())
+        return true;
+
+    // Константы и параметры
+    if (Expression->IsA<UMaterialExpressionConstant>() ||
+        Expression->IsA<UMaterialExpressionConstant2Vector>() ||
+        Expression->IsA<UMaterialExpressionConstant3Vector>() ||
+        Expression->IsA<UMaterialExpressionConstant4Vector>())
+        return false;
+
+    // По умолчанию считаем, что входы возможны
+    return true;
 }
 
-void BPR_Extractor_MaterialFunction::LogError(const FString& Msg)
+
+FString BPR_Extractor_MaterialFunction::GetReadableNodeName(
+    UMaterialExpression* Expr,
+    int32 NodeId
+)
 {
-    UE_LOG(LogTemp, Error, TEXT("[BPR_Extractor_MaterialFunction] %s"), *Msg);
+    if (!Expr)
+        return FString::Printf(TEXT("None_%d"), NodeId);
+
+    FString TypeName = Expr->GetClass()->GetName();
+    TypeName.RemoveFromStart(TEXT("MaterialExpression"));
+
+    // 1️⃣ Function Input
+    if (auto* Input = Cast<UMaterialExpressionFunctionInput>(Expr))
+    {
+        if (!Input->InputName.IsNone())
+        {
+            return FString::Printf(
+                TEXT("Input_%s"),
+                *Input->InputName.ToString()
+            );
+        }
+    }
+    // 2️⃣ Function Output
+    else if (auto* Output = Cast<UMaterialExpressionFunctionOutput>(Expr))
+    {
+        if (!Output->OutputName.IsNone())
+        {
+            return FString::Printf(
+                TEXT("Output_%s"),
+                *Output->OutputName.ToString()
+            );
+        }
+    }
+    // 3️⃣ Nested Material Function
+    else if (auto* FuncCall = Cast<UMaterialExpressionMaterialFunctionCall>(Expr))
+    {
+        if (FuncCall->MaterialFunction)
+        {
+            return FString::Printf(
+                TEXT("MF_%s"),
+                *CleanName(FuncCall->MaterialFunction->GetName())
+            );
+        }
+    }
+    // 4️⃣ Named Reroute
+    else if (auto* Decl = Cast<UMaterialExpressionNamedRerouteDeclaration>(Expr))
+    {
+        if (!Decl->Name.IsNone())
+        {
+            return FString::Printf(
+                TEXT("Reroute_%s"),
+                *Decl->Name.ToString()
+            );
+        }
+    }
+
+    // 5️⃣ Fallback
+    return FString::Printf(TEXT("%s_%d"), *TypeName, NodeId);
 }
+
+
+FString BPR_Extractor_MaterialFunction::CleanName(const FString& RawName)
+{
+    FString Result = RawName;
+
+    int32 UnderscoreIndex;
+    if (RawName.FindLastChar('_', UnderscoreIndex))
+    {
+        FString Tail = RawName.Mid(UnderscoreIndex + 1);
+
+        if (Tail.Len() >= 8 && Tail.IsNumeric())
+        {
+            Result = RawName.Left(UnderscoreIndex);
+        }
+    }
+
+    return Result;
+}
+
+
+
+FString BPR_Extractor_MaterialFunction::MakeIndent(int32 Level)
+{
+    return FString::ChrN(Level * 2, ' ');
+}
+
+
+
+bool BPR_Extractor_MaterialFunction::IsTransparentExpression(
+    UMaterialExpression* Expression
+)
+{
+    if (!Expression) return false;
+
+    if (Expression->IsA<UMaterialExpressionReroute>()) return true;
+    if (Expression->IsA<UMaterialExpressionNamedRerouteUsage>()) return true;
+    if (Expression->IsA<UMaterialExpressionNamedRerouteDeclaration>()) return true;
+
+    return false;
+}
+
+
+
+bool BPR_Extractor_MaterialFunction::IsLogicalSourceExpression(
+    UMaterialExpression* Expr
+)
+{
+    if (!Expr)
+        return false;
+
+    // -------------------------
+    // Function-specific
+    // -------------------------
+    if (Cast<UMaterialExpressionFunctionInput>(Expr)) return true;
+
+    // -------------------------
+    // Parameters
+    // -------------------------
+    if (Cast<UMaterialExpressionScalarParameter>(Expr)) return true;
+    if (Cast<UMaterialExpressionVectorParameter>(Expr)) return true;
+    if (Cast<UMaterialExpressionTextureSampleParameter>(Expr)) return true;
+    if (Cast<UMaterialExpressionStaticSwitchParameter>(Expr)) return true;
+
+    // -------------------------
+    // Constants
+    // -------------------------
+    if (Cast<UMaterialExpressionConstant>(Expr)) return true;
+    if (Cast<UMaterialExpressionConstant2Vector>(Expr)) return true;
+    if (Cast<UMaterialExpressionConstant3Vector>(Expr)) return true;
+    if (Cast<UMaterialExpressionConstant4Vector>(Expr)) return true;
+
+    // -------------------------
+    // Logic
+    // -------------------------
+    if (Cast<UMaterialExpressionStaticSwitch>(Expr)) return true;
+
+    // -------------------------
+    // Nested functions
+    // -------------------------
+    if (Cast<UMaterialExpressionMaterialFunctionCall>(Expr)) return true;
+
+    return false;
+}
+
+
+
+UMaterialExpression* BPR_Extractor_MaterialFunction::ResolveExpression(
+    UMaterialExpression* Expr
+)
+{
+    if (!Expr)
+    {
+        return nullptr;
+    }
+
+    TSet<UMaterialExpression*> Visited;
+    UMaterialExpression* Current = Expr;
+
+    while (Current && IsTransparentExpression(Current))
+    {
+        if (Visited.Contains(Current))
+        {
+            LogWarning(FString::Printf(
+                TEXT("ResolveExpression (MF): loop detected at %s"),
+                *Current->GetName()
+            ));
+            return nullptr;
+        }
+
+        Visited.Add(Current);
+
+        TArray<UMaterialExpression*> InputExpressions;
+        Current->GetAllInputExpressions(InputExpressions);
+
+        if (InputExpressions.Num() == 0)
+        {
+            return nullptr;
+        }
+
+        Current = InputExpressions[0];
+    }
+
+    return Current;
+}
+
+//==============================================================================
+// Logging
+//==============================================================================
+void BPR_Extractor_MaterialFunction::LogWarning(const FString& Msg) { UE_LOG(LogTemp, Warning, TEXT("%s"), *Msg); }
+void BPR_Extractor_MaterialFunction::LogError(const FString& Msg) { UE_LOG(LogTemp, Error, TEXT("%s"), *Msg); }
+void BPR_Extractor_MaterialFunction::LogMessage(const FString& Msg) { UE_LOG(LogTemp, Log, TEXT("%s"), *Msg); }
