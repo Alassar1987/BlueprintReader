@@ -49,7 +49,7 @@ public:
     //---------------------------------------------------------------------- 
     bool IsSupportedAsset(UObject* Object);
     void ExtractorSelector(UObject* Object);
-    void OnExtraMenuEntryClicked(UObject* Object);
+  
 
     // --- Доступ к данным для UI ---
     const FBPR_ExtractedData& GetTextData() const { return TextData; }

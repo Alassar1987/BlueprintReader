@@ -3,6 +3,7 @@
 #include "UI/BPR_OutputWindow.h"
 #include "UI/BPR_ContentBrowserAssetActions.h"
 #include "UI/BPR_TabSwitcher.h"
+#include "UI/BPR_InfoWindow.h"
 
 #include "Modules/ModuleManager.h"
 
@@ -79,9 +80,23 @@ void FBlueprintReaderModule::HandleMenuClick(UObject* SelectedObject)
 	// Проверяем, поддерживается ли ассет
 	if (!CoreInstance->IsSupportedAsset(SelectedObject))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("BPR: выбранный ассет не поддерживается!"));
+		UE_LOG(LogTemp, Warning, TEXT("BPR: The selected asset is not supported!"));
+
+		InfoWindow = MakeShared<BPR_InfoWindow>();
+		InfoWindow->Open({
+			FText::FromString("Blueprint Reader"),                                    // Title
+			FText::FromString("Warning! This asset is not supported yet!"),           // Main warning
+			FText::FromString(
+				"The Blueprint Reader plugin cannot display this asset type in the current version.\n"
+				"This is not an engine error, it's just support not yet implemented."), // SubMessage
+			FString("https://www.google.com"),                                        // URL
+			FText::FromString("Check for updates")                                    // Button text
+		});
+
 		return;
 	}
+
+
 
 	// ВАЖНО: Сначала открываем окно и даём виджетам инициализироваться
 	OutputWindow->Open();

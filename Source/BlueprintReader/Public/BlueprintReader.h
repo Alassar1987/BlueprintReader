@@ -9,6 +9,7 @@
 
 class BPR_Core;
 class BPR_OutputWindow;
+class BPR_InfoWindow;
 
 class FBlueprintReaderModule : public IModuleInterface
 {
@@ -37,6 +38,7 @@ private:
 
 	/** Окно вывода с TabSwitcher */
 	TSharedPtr<BPR_OutputWindow> OutputWindow;
+	TSharedPtr<BPR_InfoWindow> InfoWindow;
 
 #if WITH_EDITOR
 	/** Контекстное меню в Content Browser */
