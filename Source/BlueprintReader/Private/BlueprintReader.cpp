@@ -17,7 +17,7 @@
 void FBlueprintReaderModule::StartupModule()
 {
 	// Создаём Core
-	CoreInstance = new BPR_Core();
+	CoreInstance = MakeUnique<BPR_Core>();
 
 #if WITH_EDITOR
 	// Создаём окно вывода с TabSwitcher
@@ -46,8 +46,7 @@ void FBlueprintReaderModule::ShutdownModule()
 
 	if (CoreInstance)
 	{
-		delete CoreInstance;
-		CoreInstance = nullptr;
+		CoreInstance.Reset();
 	}
 }
 
@@ -70,7 +69,7 @@ void FBlueprintReaderModule::OpenOutputWindow()
 #if WITH_EDITOR
 void FBlueprintReaderModule::HandleMenuClick(UObject* SelectedObject)
 {
-	if (!SelectedObject || !CoreInstance || !OutputWindow.IsValid())
+	if (!SelectedObject || !CoreInstance.IsValid() || !OutputWindow.IsValid())
 	{
 		UE_LOG(LogTemp, Error, TEXT("BPR: Invalid state - Object=%d, Core=%d, Window=%d"), 
 			SelectedObject != nullptr, CoreInstance != nullptr, OutputWindow.IsValid());

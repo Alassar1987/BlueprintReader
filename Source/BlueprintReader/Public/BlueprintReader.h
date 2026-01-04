@@ -19,7 +19,8 @@ public:
 	virtual void ShutdownModule() override;
 
 	/** Доступ к Core */
-	BPR_Core* GetCoreInstance() const { return CoreInstance; }
+	BPR_Core* GetCoreInstance() const { return CoreInstance.Get(); }
+
 
 	/** Доступ к окну */
 	TSharedPtr<BPR_OutputWindow> GetOutputWindow() const { return OutputWindow; }
@@ -34,7 +35,8 @@ public:
 
 private:
 	/** Центральная логика плагина */
-	BPR_Core* CoreInstance = nullptr;
+	TUniquePtr<BPR_Core> CoreInstance;
+
 
 	/** Окно вывода с TabSwitcher */
 	TSharedPtr<BPR_OutputWindow> OutputWindow;

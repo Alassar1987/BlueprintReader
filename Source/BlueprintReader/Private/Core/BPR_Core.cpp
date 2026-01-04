@@ -1,16 +1,12 @@
 #include "Core/BPR_Core.h"
-
-#include "UI/BPR_TextWidget.h"
+#include "Engine/Blueprint.h"
 #include "Extractors/BPR_Extractor_Actor.h"
 #include "Extractors/BPR_Extractor_ActorComponent.h"
 #include "Extractors/BPR_Extractor_Material.h"
 #include "Extractors/BPR_Extractor_MaterialFunction.h"
-#include "Extractors/BPR_Extractor_Widget.h"
 #include "Extractors/BPR_Extractor_Enum.h"
 #include "Extractors/BPR_Extractor_Structure.h"
 #include "Extractors/BPR_Extractor_InterfaceBP.h"
-#include "Extractors/BPR_Extractor_StaticMesh.h"
-#include "Blueprint/UserWidget.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Widgets/SWindow.h"
 #include "Logging/LogMacros.h"
@@ -40,12 +36,7 @@ bool BPR_Core::IsSupportedAsset(UObject* Object)
                 CachedType = EAssetType::ActorComponent;
                 return true;
             }
-            else if (BP->GeneratedClass->IsChildOf(UUserWidget::StaticClass()))
-            {
-                CachedType = EAssetType::Widget;
-                return true;
-            }            
-            
+                     
         }
     }
 
@@ -55,11 +46,9 @@ bool BPR_Core::IsSupportedAsset(UObject* Object)
         return true;
     }
     if (Cast<UMaterialFunction>(Object)) { CachedType = EAssetType::MaterialFunction; return true; }
-    //if (Cast<UMaterialFunctionInstance>(Object)) { CachedType = EAssetType::MaterialFunctionInstance; return true; }
     if (Cast<UEnum>(Object)) { CachedType = EAssetType::Enum; return true; }
     if (Cast<UScriptStruct>(Object)) { CachedType = EAssetType::Structure; return true; }
     if (Cast<UBlueprint>(Object)) { CachedType = EAssetType::InterfaceBP; return true; }
-    if (Cast<UStaticMesh>(Object)) { CachedType = EAssetType::StaticMesh; return true; }
 
     return false;
 }
@@ -117,23 +106,7 @@ void BPR_Core::ExtractorSelector(UObject* Object)
             Extractor.ProcessInterfaceBP(Object, TextData);
             break;
         }
-    
-    case EAssetType::StaticMesh:
-        {
-            UE_LOG(LogTemp, Log, TEXT("BPR_Core: Using StaticMesh extractor"));
-            BPR_Extractor_StaticMesh Extractor;
-            Extractor.ProcessStaticMesh(Object, TextData);
-            break;
-        }
-        
-    case EAssetType::Widget:
-        {
-            UE_LOG(LogTemp, Log, TEXT("BPR_Core: Using Widget extractor"));
-            BPR_Extractor_Widget Extractor;
-            Extractor.ProcessWidget(Object, TextData);
-            break;
-        }
-        
+       
     case EAssetType::Material:
         {
             UE_LOG(LogTemp, Log, TEXT("BPR_Core: Using Material extractor"));

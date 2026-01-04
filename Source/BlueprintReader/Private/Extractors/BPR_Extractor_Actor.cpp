@@ -1,6 +1,5 @@
 #include "Extractors/BPR_Extractor_Actor.h"
 #include "Engine/Blueprint.h"
-#include "Kismet2/BlueprintEditorUtils.h"
 #include "UObject/UnrealType.h"
 #include "EdGraph/EdGraph.h"
 #include "EdGraphSchema_K2.h"
@@ -8,7 +7,6 @@
 #include "K2Node_CustomEvent.h"
 #include "K2Node_FunctionEntry.h"
 #include "K2Node_FunctionResult.h"
-#include "K2Node_MacroInstance.h"
 #include "K2Node_CallFunction.h"
 #include "K2Node_CallDelegate.h"
 #include "K2Node_IfThenElse.h"
@@ -188,7 +186,9 @@ void BPR_Extractor_Actor::AppendVariables(UBlueprint* Blueprint, FString& OutTex
     OutText += TEXT("|------|------|---------------|-------|----------|-------------|\n");
 
     UClass* Class = Blueprint->GeneratedClass;
+    if (!Class) return;
     UObject* CDO = Class->GetDefaultObject();
+    if (!CDO) return;
 
     for (TFieldIterator<FProperty> PropIt(Class, EFieldIteratorFlags::ExcludeSuper); PropIt; ++PropIt)
     {

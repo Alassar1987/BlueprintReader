@@ -33,15 +33,11 @@ public:
         Unknown,
         Actor,
         Material,
-        //MaterialInstance,
         MaterialFunction,
-        //MaterialFunctionInstance,
         ActorComponent,
         Enum,
         Structure,
-        InterfaceBP,
-        Widget,
-        StaticMesh
+        InterfaceBP
     };
 
     //---------------------------------------------------------------------- 
