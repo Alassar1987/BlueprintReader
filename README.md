@@ -40,7 +40,7 @@ Useful for documentation, code review, AI-assisted development, or simply unders
 
 1. Open Content Browser
 2. Right-click on any supported asset
-3. Select **"Show BP as MD"** from the context menu
+3. Select **"Read Blueprint for AI"** from the context menu
 4. A window will open with two tabs:
    - **Structure** — Variables, components, parameters, class info
    - **Graph** — Execution flow, function calls, data connections
@@ -68,8 +68,6 @@ Useful for documentation, code review, AI-assisted development, or simply unders
 ## Support the Project
 
 If you find this plugin useful, consider supporting its development:
-
-☕ **Buy Me a Coffee:** [Here will be coffee]()
 
 🎁 **Patreon:** [Racoon Coder](https://www.patreon.com/c/u12165995)
 
