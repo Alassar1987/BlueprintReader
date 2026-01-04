@@ -6,7 +6,7 @@ Useful for documentation, code review, AI-assisted development, or simply unders
 
 ## 📺 Video Tutorial
 
-[YouTube Video Coming Soon]()
+[YouTube How it works](https://youtu.be/vbsbJF24uAs?list=PLZuZmQd4mRCburxOj_ALrhRZdZcNWdE5e)
 
 ## Features
 
@@ -69,9 +69,9 @@ Useful for documentation, code review, AI-assisted development, or simply unders
 
 If you find this plugin useful, consider supporting its development:
 
-☕ **Buy Me a Coffee:** [My Coffee]()
+☕ **Buy Me a Coffee:** [Here will be coffee]()
 
-🎁 **Patreon:** [My Patreon]()
+🎁 **Patreon:** [Racoon Coder](https://www.patreon.com/c/u12165995)
 
 🎁 **Boosty:** [My Boosty]()
 
