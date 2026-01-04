@@ -18,14 +18,14 @@ BPR_InfoWindow::~BPR_InfoWindow()
 
 void BPR_InfoWindow::Open(const FParams& Params)
 {
-    // Если окно уже открыто, поднимаем его на передний план
+    // If the window is already open, bring it to the foreground
     if (Window.IsValid())
     {
         Window.Pin()->BringToFront();
         return;
     }
 
-    // Создаём новое окно
+    // Create a new window
     TSharedRef<SWindow> NewWindow = SNew(SWindow)
         .Title(Params.Title)
         .ClientSize(FVector2D(600, 300))
@@ -38,7 +38,7 @@ void BPR_InfoWindow::Open(const FParams& Params)
             [
                 SNew(SVerticalBox)
 
-                // 1️⃣ Основной warning текст
+                // 1️⃣ Main warning text
                 + SVerticalBox::Slot()
                 .AutoHeight()
                 .Padding(0, 10)
@@ -50,19 +50,19 @@ void BPR_InfoWindow::Open(const FParams& Params)
                     .Justification(ETextJustify::Center)
                 ]
 
-                // 2️⃣ Подробное пояснение
+                // 2️⃣ Detailed Explanation
                 + SVerticalBox::Slot()
                 .AutoHeight()
                 .Padding(20, 5)
                 [
                     SNew(STextBlock)
                     .Text(Params.SubMessage)
-                    .Font(FCoreStyle::GetDefaultFontStyle("Regular", 14)) // рабочий шрифт
+                    .Font(FCoreStyle::GetDefaultFontStyle("Regular", 14)) // working font
                     .ColorAndOpacity(FSlateColor(FLinearColor::White))
                     .AutoWrapText(true)
                 ]
 
-                // 3️⃣ Кнопка "Check for updates"
+                // 3️⃣ "Check for updates" button
                 + SVerticalBox::Slot()
                 .AutoHeight()
                 .HAlign(HAlign_Center)
@@ -81,7 +81,7 @@ void BPR_InfoWindow::Open(const FParams& Params)
                     })
                 ]
 
-                // 4️⃣ Подсказка под кнопкой
+                // 4️⃣ Tooltip below the button
                 + SVerticalBox::Slot()
                 .AutoHeight()
                 .HAlign(HAlign_Center)
@@ -89,12 +89,12 @@ void BPR_InfoWindow::Open(const FParams& Params)
                 [
                     SNew(STextBlock)
                     .Text(FText::FromString("View the roadmap and learn about plans"))
-                    .Font(FCoreStyle::GetDefaultFontStyle("Regular", 14)) // рабочий шрифт
+                    .Font(FCoreStyle::GetDefaultFontStyle("Regular", 14))
                     .ColorAndOpacity(FSlateColor(FLinearColor::Gray))
                     .Justification(ETextJustify::Center)
                 ]
 
-                // 5️⃣ Кнопка OK
+                // 5️⃣ OK button
                 + SVerticalBox::Slot()
                 .AutoHeight()
                 .HAlign(HAlign_Right)
@@ -114,13 +114,13 @@ void BPR_InfoWindow::Open(const FParams& Params)
             ]
         ];
 
-    // Добавляем окно в Slate
+    // Add a window to Slate
     FSlateApplication::Get().AddWindow(NewWindow);
     Window = NewWindow;
 }
 
 
-// Закрываем окно при нажатии OK
+// Close the window by clicking OK
 FReply BPR_InfoWindow::OnOkClicked()
 {
     if (TSharedPtr<SWindow> W = Window.Pin())
@@ -130,7 +130,7 @@ FReply BPR_InfoWindow::OnOkClicked()
     return FReply::Handled();
 }
 
-// Открываем браузер при нажатии на кнопку URL
+// Open the browser when you click on the URL button
 FReply BPR_InfoWindow::OnUrlClicked(const FString& Url)
 {
     if (!Url.IsEmpty())

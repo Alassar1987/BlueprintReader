@@ -16,14 +16,14 @@
 //==============================================================================
 void FBlueprintReaderModule::StartupModule()
 {
-	// Создаём Core
+	// Creating Core
 	CoreInstance = MakeUnique<BPR_Core>();
 
 #if WITH_EDITOR
-	// Создаём окно вывода с TabSwitcher
+	// Creating an output window with TabSwitcher
 	OutputWindow = MakeShared<BPR_OutputWindow>();
 
-	// Регистрируем действия в Content Browser
+	// Registering actions in the Content Browser
 	ContentBrowserActions = MakeShared<FBPR_ContentBrowserAssetActions>();
 	ContentBrowserActions->Register();
 #endif
@@ -76,7 +76,7 @@ void FBlueprintReaderModule::HandleMenuClick(UObject* SelectedObject)
 		return;
 	}
 
-	// Проверяем, поддерживается ли ассет
+	// Checking if the asset is supported
 	if (!CoreInstance->IsSupportedAsset(SelectedObject))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("BPR: The selected asset is not supported!"));
@@ -95,12 +95,10 @@ void FBlueprintReaderModule::HandleMenuClick(UObject* SelectedObject)
 		return;
 	}
 
-
-
 	// ВАЖНО: Сначала открываем окно и даём виджетам инициализироваться
 	OutputWindow->Open();
 
-	// Получаем TabSwitcher ПОСЛЕ открытия окна
+	// Getting TabSwitcher AFTER opening the window
 	TSharedPtr<SBPR_TabSwitcher> TabSwitcher = OutputWindow->GetTabSwitcher();
 	if (!TabSwitcher.IsValid())
 	{
@@ -108,18 +106,18 @@ void FBlueprintReaderModule::HandleMenuClick(UObject* SelectedObject)
 		return;
 	}
 
-	// Запускаем экстрактор
+	// Launching the extractor
 	CoreInstance->ExtractorSelector(SelectedObject);
 
-	// Получаем данные из Core
+	// Getting data from Core
 	const FBPR_ExtractedData& ExtractedData = CoreInstance->GetTextData();
 
-	// Логируем для отладки
+	// Logging for debugging
 	UE_LOG(LogTemp, Log, TEXT("BPR: Setting data - Structure length: %d, Graph length: %d"),
 		ExtractedData.Structure.ToString().Len(),
 		ExtractedData.Graph.ToString().Len());
 
-	// Передаем данные в TabSwitcher
+	// Passing data to TabSwitcher
 	TabSwitcher->SetData(ExtractedData);
 	
 	UE_LOG(LogTemp, Log, TEXT("BPR: Data successfully set to TabSwitcher"));
@@ -127,6 +125,6 @@ void FBlueprintReaderModule::HandleMenuClick(UObject* SelectedObject)
 #endif
 
 //==============================================================================
-// Регистрация модуля
+// Module registration
 //==============================================================================
 IMPLEMENT_MODULE(FBlueprintReaderModule, BlueprintReader);

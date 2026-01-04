@@ -3,7 +3,7 @@
 #include "CoreMinimal.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Layout/SWidgetSwitcher.h"
-#include "Core/BPR_Core.h" // полный тип FBPR_ExtractedData
+#include "Core/BPR_Core.h"
 
 class SBPR_TabSwitcher : public SCompoundWidget
 {
@@ -16,7 +16,7 @@ public:
 
 	void Construct(const FArguments& InArgs);
 
-	/** Устанавливает данные после создания виджета */
+	/** Sets the data after the widget is created */
 	void SetData(const FBPR_ExtractedData& InData);
 
 private:
@@ -24,7 +24,7 @@ private:
 	FReply OnGraphTabClicked();
 	void SwitchToIndex(int32 Index);
 
-	/** Применяет данные, если виджеты готовы */
+	/** Applies data if widgets are ready */
 	void ApplyPendingData();
 
 private:
@@ -32,6 +32,6 @@ private:
 	TSharedPtr<class SBPR_TextWidget> StructureTextWidget;
 	TSharedPtr<class SBPR_TextWidget> GraphTextWidget;
 
-	/** Данные, которые нужно применить */
+	/** Data to be applied */
 	TOptional<FBPR_ExtractedData> PendingData;
 };

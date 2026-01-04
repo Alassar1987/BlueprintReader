@@ -5,12 +5,12 @@
 
 BPR_OutputWindow::BPR_OutputWindow()
 {
-	// Конструктор больше не создаёт TabSwitcher через MakeShared
+	// The constructor no longer creates a TabSwitcher via MakeShared
 }
 
 BPR_OutputWindow::~BPR_OutputWindow()
 {
-	// Закрываем окно, если оно существует
+	// Close the window if it exists
 	if (TSharedPtr<SWindow> W = Window.Pin())
 	{
 		W->RequestDestroyWindow();
@@ -26,11 +26,11 @@ void BPR_OutputWindow::Open(const TOptional<FBPR_ExtractedData>& InitialData)
 		return;
 	}
 
-	// Создаём TabSwitcher и сразу передаём начальные данные
+	// Create a TabSwitcher and immediately transfer the initial data
 	TSharedRef<SBPR_TabSwitcher> TabSwitcherRef = SNew(SBPR_TabSwitcher)
 		.InitialData(InitialData);
 
-	// Создаём новое окно Slate и вставляем в него TabSwitcher
+	// Create a new Slate window and insert a TabSwitcher into it
 	TSharedRef<SWindow> NewWindow = SNew(SWindow)
 		.Title(FText::FromString("BPR Output"))
 		.ClientSize(FVector2D(800, 600))
@@ -42,7 +42,7 @@ void BPR_OutputWindow::Open(const TOptional<FBPR_ExtractedData>& InitialData)
 
 	FSlateApplication::Get().AddWindow(NewWindow);
 
-	// Сохраняем ссылки
+	// Saving links
 	Window = NewWindow;
 	TabSwitcher = TabSwitcherRef;
 

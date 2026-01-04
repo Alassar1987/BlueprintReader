@@ -11,7 +11,7 @@ void SBPR_TextWidget::Construct(const FArguments& InArgs)
 
     ChildSlot
     [
-        // ВАЖНО: Используем ваш кастомный ScrollBox, который НЕ обрабатывает Ctrl+Wheel
+        // IMPORTANT: We use your custom ScrollBox, which does NOT handle Ctrl+Wheel
         SAssignNew(ScrollBox, SBPR_ScrollBox)
         .Orientation(EOrientation::Orient_Vertical)
         [
@@ -42,14 +42,14 @@ void SBPR_TextWidget::SetText(const FText& InText)
 //  OnMouseWheel
 //==============================================================================
 //
-//  Этот метод вызывается ПЕРВЫМ, до ScrollBox.
-//  Ctrl + колесо → зум текста
-//  Без Ctrl → передаем в ScrollBox для прокрутки
+// This method is called FIRST, before the ScrollBox.
+// Ctrl + wheel → zoom text
+// Without Ctrl → passed to ScrollBox for scrolling
 //
 //==============================================================================
 FReply SBPR_TextWidget::OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-    // Если Ctrl зажат - масштабируем текст
+    // If Ctrl is held down, we scale the text
     if (MouseEvent.IsControlDown())
     {
         TextScale = FMath::Clamp(TextScale + MouseEvent.GetWheelDelta() * 0.1f, 0.5f, 3.0f);
@@ -57,7 +57,7 @@ FReply SBPR_TextWidget::OnMouseWheel(const FGeometry& MyGeometry, const FPointer
         return FReply::Handled();
     }
 
-    // Если Ctrl не зажат - передаем событие в ScrollBox для обычной прокрутки
+    // If Ctrl is not held down, we pass the event to the ScrollBox for normal scrolling
     if (ScrollBox.IsValid())
     {
         return ScrollBox->OnMouseWheel(MyGeometry, MouseEvent);

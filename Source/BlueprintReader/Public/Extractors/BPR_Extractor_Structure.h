@@ -1,10 +1,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Core/BPR_Core.h" // FBPR_ExtractedData
+#include "Core/BPR_Core.h"
 
 /**
- * Экстрактор для структур (UScriptStruct)
+ * Extractor for structures (UScriptStruct)
  */
 class BLUEPRINTREADER_API BPR_Extractor_Structure
 {
@@ -12,10 +12,10 @@ public:
 	BPR_Extractor_Structure();
 	~BPR_Extractor_Structure();
 
-	/** Основной метод извлечения данных из структуры */
+	/** Basic method of extracting data from a structure */
 	void ProcessStructure(UObject* Object, FBPR_ExtractedData& OutData);
 
 private:
-	/** Помогает формировать текст Markdown для конкретного UScriptStruct */
+	/** Helps generate Markdown text for a specific UScriptStruct */
 	void AppendStructInfo(UScriptStruct* Struct, FString& OutText);
 };

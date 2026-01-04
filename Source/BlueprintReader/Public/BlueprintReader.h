@@ -14,36 +14,36 @@ class BPR_InfoWindow;
 class FBlueprintReaderModule : public IModuleInterface
 {
 public:
-	// Жизненный цикл модуля
+	// Module life cycle
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 
-	/** Доступ к Core */
+	/** Access to Core */
 	BPR_Core* GetCoreInstance() const { return CoreInstance.Get(); }
 
 
-	/** Доступ к окну */
+	/** Window access */
 	TSharedPtr<BPR_OutputWindow> GetOutputWindow() const { return OutputWindow; }
 
 #if WITH_EDITOR
-	/** Открыть окно вручную */
+	/** Open a window manually */
 	void OpenOutputWindow();
 
-	/** Обрабатывает клик по пункту контекстного меню */
+	/** Processes a click on a context menu item */
 	void HandleMenuClick(UObject* SelectedObject);
 #endif
 
 private:
-	/** Центральная логика плагина */
+	/** Central plugin logic */
 	TUniquePtr<BPR_Core> CoreInstance;
 
 
-	/** Окно вывода с TabSwitcher */
+	/** Output window with TabSwitcher */
 	TSharedPtr<BPR_OutputWindow> OutputWindow;
 	TSharedPtr<BPR_InfoWindow> InfoWindow;
 
 #if WITH_EDITOR
-	/** Контекстное меню в Content Browser */
+	/** Context menu in Content Browser */
 	TSharedPtr<FBPR_ContentBrowserAssetActions> ContentBrowserActions;
 #endif
 };

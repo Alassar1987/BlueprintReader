@@ -5,13 +5,13 @@
 //==============================================================================
 void SBPR_ScrollBox::Construct(const FArguments& InArgs)
 {
-	// Инициализируем базовый SScrollBox
+	// Initializing the basic SScrollBox
 	SScrollBox::Construct(
 		SScrollBox::FArguments()
 		.Orientation(InArgs._Orientation)
 	);
 
-	// Добавляем контент, если он передан
+	// Add content if it is transferred
 	AddSlot()
 		.Padding(0)
 		[
@@ -23,21 +23,21 @@ void SBPR_ScrollBox::Construct(const FArguments& InArgs)
 //  OnMouseWheel
 //==============================================================================
 //
-//  КРИТИЧЕСКИ ВАЖНО: Если Ctrl зажат, возвращаем Unhandled.
-//  Это позволяет родительскому виджету (SBPR_TextWidget) обработать событие
-//  для зума текста. Только если Ctrl НЕ зажат - выполняем обычную прокрутку.
+//  CRITICALLY IMPORTANT: If Ctrl is held down, return Unhandled.
+// This allows the parent widget (SBPR_TextWidget) to handle the event
+// to zoom text. Only if Ctrl is NOT held down, we perform normal scrolling.
 //
 //==============================================================================
 FReply SBPR_ScrollBox::OnMouseWheel(
 	const FGeometry& MyGeometry,
 	const FPointerEvent& MouseEvent)
 {
-	// Если Ctrl зажат - НЕ обрабатываем, передаем родителю
+	// If Ctrl is held down, we DO NOT process it, pass it to the parent
 	if (MouseEvent.IsControlDown())
 	{
 		return FReply::Unhandled();
 	}
 
-	// Иначе - стандартная прокрутка ScrollBox
+	// Otherwise - standard ScrollBox scrolling
 	return SScrollBox::OnMouseWheel(MyGeometry, MouseEvent);
 }

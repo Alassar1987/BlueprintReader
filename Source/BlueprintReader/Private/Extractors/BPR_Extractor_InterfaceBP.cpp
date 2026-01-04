@@ -38,7 +38,7 @@ void BPR_Extractor_InterfaceBP::ProcessInterfaceBP(
 
 	Result += TEXT("\n");
 
-	// Добавляем список функций интерфейса
+	// Adding a list of interface functions
 	AppendInterfaceFunctions(BP, Result);
 
 	OutData.Structure = FText::FromString(Result);
@@ -76,7 +76,7 @@ void BPR_Extractor_InterfaceBP::AppendInterfaceFunctions(UBlueprint* BP, FString
                 break;
         }
 
-        // Обрабатываем входные параметры (из FunctionEntry)
+        // Processing input parameters (from FunctionEntry)
         if (EntryNode)
         {
             for (UEdGraphPin* Pin : EntryNode->Pins)
@@ -102,7 +102,7 @@ void BPR_Extractor_InterfaceBP::AppendInterfaceFunctions(UBlueprint* BP, FString
             }
         }
 
-        // Обрабатываем выходные параметры (из FunctionResult)
+        // Processing output parameters (from FunctionResult)
         if (ResultNode)
         {
             for (UEdGraphPin* Pin : ResultNode->Pins)
@@ -113,8 +113,8 @@ void BPR_Extractor_InterfaceBP::AppendInterfaceFunctions(UBlueprint* BP, FString
                 if (Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec)
                     continue;
 
-                // На FunctionResult выходные параметры имеют Direction == Input
-                // (данные "входят" в Result из графа)
+                // On FunctionResult the output parameters have Direction == Input 
+                // (data is “included” in Result from the graph)
                 if (Pin->Direction != EGPD_Input)
                     continue;
 

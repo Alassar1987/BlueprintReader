@@ -4,7 +4,7 @@
 #include "ContentBrowserModule.h"
 #include "IContentBrowserSingleton.h"
 
-#include "BlueprintReader.h" // модуль плагина
+#include "BlueprintReader.h"
 
 //==============================================================================
 // Register
@@ -16,7 +16,7 @@ void FBPR_ContentBrowserAssetActions::Register()
 
     Section.AddMenuEntry(
         "ShowBPAsMD",
-        FText::FromString("Show BP as MD"),
+        FText::FromString("Read Blueprint for AI-Assistant"),
         FText::FromString("Convert Blueprint to Markdown via BPR Core"),
         FSlateIcon(),
         FUIAction(
@@ -36,7 +36,7 @@ void FBPR_ContentBrowserAssetActions::Unregister()
 //==============================================================================
 // OnShowBPAsMDClicked
 //
-//  Только передаем выбранный ассет в модуль.
+//  We just transfer the selected asset to the module.
 //==============================================================================
 void FBPR_ContentBrowserAssetActions::OnShowBPAsMDClicked()
 {
@@ -44,7 +44,7 @@ void FBPR_ContentBrowserAssetActions::OnShowBPAsMDClicked()
     UObject* SelectedObject = GetSelectedAsset();
     if (!SelectedObject)
     {
-        UE_LOG(LogTemp, Warning, TEXT("BPR: нет выбранного ассета!"));
+        UE_LOG(LogTemp, Warning, TEXT("BPR: no asset selected!"));
         return;
     }
 

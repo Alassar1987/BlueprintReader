@@ -8,7 +8,7 @@
 #include "MaterialExpressionIO.h"
 #include "Materials/MaterialExpressionReroute.h"
 #include "Materials/MaterialExpressionNamedReroute.h"
-#include "Materials/MaterialExpressionStaticSwitchParameter.h" // для StaticSwitch
+#include "Materials/MaterialExpressionStaticSwitchParameter.h" // for StaticSwitch
 #include "UObject/UnrealType.h" // FProperty, FStructProperty
 #include "Materials/MaterialParameterCollection.h"
 #include "Materials/MaterialParameterCollectionInstance.h"
@@ -45,7 +45,7 @@ void BPR_Extractor_Material::ProcessMaterial(UObject* SelectedObject, FBPR_Extra
 	FString TmpStructure;
 	FString TmpGraph;
 
-	// Для обычного материала
+	// For normal material
 	if (Material)
 	{
 		AppendMaterialInfo(Material, TmpStructure);
@@ -53,7 +53,7 @@ void BPR_Extractor_Material::ProcessMaterial(UObject* SelectedObject, FBPR_Extra
 		AppendMaterialGraph(Material, TmpGraph);
 	}
 
-	// Для материала-инстанса
+	// For material instance
 	if (MaterialInstance)
 	{
 		AppendMaterialInstanceInfo(MaterialInstance, TmpStructure);
@@ -72,7 +72,7 @@ void BPR_Extractor_Material::ProcessMaterial(UObject* SelectedObject, FBPR_Extra
 
 
 //==============================================================================
-// Информация о материале
+// Material Information
 //==============================================================================
 void BPR_Extractor_Material::AppendMaterialInfo(UMaterial* Material, FString& OutText)
 {
@@ -88,7 +88,7 @@ void BPR_Extractor_Material::AppendMaterialInfo(UMaterial* Material, FString& Ou
 }
 
 //==============================================================================
-// Параметры материала
+// Material parameters
 //==============================================================================
 void BPR_Extractor_Material::AppendMaterialParameters(UMaterial* Material, FString& OutText)
 {
@@ -167,7 +167,7 @@ void BPR_Extractor_Material::AppendMaterialParameters(UMaterial* Material, FStri
 
 
 //==============================================================================
-// Обход графа материала
+// Traversing the material graph
 //==============================================================================
 void BPR_Extractor_Material::AppendMaterialGraph(UMaterial* Material, FString& OutText)
 {
@@ -193,13 +193,13 @@ void BPR_Extractor_Material::AppendMaterialGraph(UMaterial* Material, FString& O
 		{TEXT("WorldPositionOffset"), MP_WorldPositionOffset}
 	};
 
-	// DAG структуры
+	// DAG structures
 	TMap<UMaterialExpression*, int32> NodeIds;
 	TMap<int32, FString> NodeTexts;
 	int32 NextId = 1;
 
 	// ----------------------
-	// Фаза 1: Outputs
+	// Phase 1: Outputs
 	// ----------------------
 	for (const FMatOutput& Out : Outputs)
 	{
@@ -216,7 +216,7 @@ void BPR_Extractor_Material::AppendMaterialGraph(UMaterial* Material, FString& O
 			continue;
 		}
 
-		// ❗ ВАЖНО: один вызов на Output
+		// ❗ IMPORTANT: one call per Output
 		AppendMaterialOutput(
 			Out.Name,
 			DirectExpressions,
@@ -228,7 +228,7 @@ void BPR_Extractor_Material::AppendMaterialGraph(UMaterial* Material, FString& O
 	}
 
 	// ----------------------
-	// Фаза 2: Nodes
+	// Phase 2: Nodes
 	// ----------------------
 	OutText += TEXT("\n## Nodes\n");
 	for (auto& Pair : NodeTexts)
@@ -239,7 +239,7 @@ void BPR_Extractor_Material::AppendMaterialGraph(UMaterial* Material, FString& O
 
 
 //==============================================================================
-// Информация о MaterialInstance
+// MaterialInstance Information
 //==============================================================================
 void BPR_Extractor_Material::AppendMaterialInstanceInfo(UMaterialInstance* Instance, FString& OutText)
 {
@@ -256,7 +256,7 @@ void BPR_Extractor_Material::AppendMaterialInstanceInfo(UMaterialInstance* Insta
 
 
 //==============================================================================
-// Рекурсивный обход Expression
+// Recursive traversal of Expression
 //==============================================================================
 void BPR_Extractor_Material::ProcessExpressionDAG(
 	UMaterialExpression* Expression,
@@ -267,18 +267,18 @@ void BPR_Extractor_Material::ProcessExpressionDAG(
 	if (!Expression)
 		return;
 
-	// Если нода уже обработана, ничего не делаем
+	// If the node has already been processed, we do nothing
 	if (NodeIds.Contains(Expression))
 		return;
 
-	// Присваиваем уникальный ID
+	// We assign a unique ID
 	int32 NodeId = NextId++;
 	NodeIds.Add(Expression, NodeId);
 
-	// Читаемое имя ноды
+	// Readable node name
 	FString NodeDisplayName = GetReadableNodeName(Expression, NodeId);
 
-	// Строим текст ноды
+	// Building the node text
 	FString NodeText = FString::Printf(TEXT("Node: %s\n"), *NodeDisplayName);
 
 	int32 NumInputs = Expression->CountInputs();
@@ -293,10 +293,10 @@ void BPR_Extractor_Material::ProcessExpressionDAG(
 		{
 			UMaterialExpression* ChildExpr = Input->Expression;
 
-			// Рекурсивно обрабатываем child
+			// Process child recursively
 			ProcessExpressionDAG(ChildExpr, NodeIds, NodeTexts, NextId);
 
-			// Добавляем ссылку на child через читаемое имя
+			// Add a link to child using a readable name
 			int32 ChildId = NodeIds[ChildExpr];
 			FString ChildDisplayName = GetReadableNodeName(ChildExpr, ChildId);
 			NodeText += FString::Printf(TEXT("  Input: %s -> %s\n"), *InputName, *ChildDisplayName);
@@ -307,12 +307,12 @@ void BPR_Extractor_Material::ProcessExpressionDAG(
 		}
 	}
 
-	// Сохраняем текст ноды один раз
+	// Save the node text once
 	NodeTexts.Add(NodeId, NodeText);
 }
 
 //==============================================================================
-// Обход Material Output
+// Bypass Material Output
 //==============================================================================
 void BPR_Extractor_Material::AppendMaterialOutput(
 	const FString& OutputName,
@@ -329,35 +329,35 @@ void BPR_Extractor_Material::AppendMaterialOutput(
 	}
 
 	TArray<FString> DirectNames;
-	TSet<UMaterialExpression*> AddedExpressions; // защита от дублей
+	TSet<UMaterialExpression*> AddedExpressions; // protection from duplicates
 
 	for (UMaterialExpression* Expr : DirectExpressions)
 	{
 		if (!Expr)
 			continue;
 
-		// 1️⃣ Разрешаем технические ноды (Reroute, Transparent, etc.)
+		// 1️⃣ We allow technical nodes (Reroute, Transparent, etc.)
 		UMaterialExpression* ResolvedExpr = ResolveExpression(Expr);
 		if (!ResolvedExpr)
 			continue;
 
-		// 2️⃣ Фильтруем: оставляем только логические источники
+		// 2️⃣ Filtering: leaving only logical sources
 		if (!IsLogicalSourceExpression(ResolvedExpr))
 			continue;
 
-		// 3️⃣ Защита от повторов
+		// 3️⃣ Replay protection
 		if (AddedExpressions.Contains(ResolvedExpr))
 			continue;
 
 		AddedExpressions.Add(ResolvedExpr);
 
-		// 4️⃣ Добавляем в DAG (со всеми зависимостями)
+		// 4️⃣ Add to DAG (with all dependencies)
 		if (!NodeIds.Contains(ResolvedExpr))
 		{
 			ProcessExpressionDAG(ResolvedExpr, NodeIds, NodeTexts, NextId);
 		}
 
-		// 5️⃣ Добавляем читаемое имя в вывод
+		// 5️⃣ Adding a readable name to the output
 		DirectNames.Add(
 			GetReadableNodeName(ResolvedExpr, NodeIds[ResolvedExpr])
 		);
@@ -476,7 +476,7 @@ void BPR_Extractor_Material::AppendMaterialInstanceOverrides(UMaterialInstance* 
 
 
 
-// Хелперы
+// Helpers
 FString BPR_Extractor_Material::CleanName(const FString& RawName)
 {
 	FString Result = RawName;
@@ -500,8 +500,8 @@ bool BPR_Extractor_Material::HasAnyInputs(UMaterialExpression* Expression)
 {
 	if (!Expression) return false;
 
-	// Пока считаем, что если это не Constant —
-	// у него потенциально есть входы
+	// For now we consider that if this is not Constant - 
+	// it potentially has inputs
 	return !Expression->IsA<UMaterialExpressionConstant>()
 		&& !Expression->IsA<UMaterialExpressionScalarParameter>()
 		&& !Expression->IsA<UMaterialExpressionVectorParameter>();
@@ -527,13 +527,13 @@ FString BPR_Extractor_Material::GetReadableExpressionName(UMaterialExpression* E
 	if (!Expression)
 		return TEXT("None");
 
-	// 1. Базовый тип
+	// 1. Basic type
 	FString ClassName = Expression->GetClass()->GetName();
 	ClassName.RemoveFromStart(TEXT("MaterialExpression"));
 
 	FString Result = ClassName;
 
-	// 2. Частные случаи (самые важные)
+	// 2. Special cases (the most important)
 	if (auto* Tex = Cast<UMaterialExpressionTextureSample>(Expression))
 	{
 		FString TexName = Tex->Texture
@@ -565,7 +565,7 @@ FString BPR_Extractor_Material::GetReadableExpressionName(UMaterialExpression* E
 		);
 	}
 
-	// 3. Комментарий
+	// 3. Comment
 	if (!Expression->Desc.IsEmpty())
 	{
 		Result += FString::Printf(TEXT(" // %s"), *Expression->Desc);
@@ -576,18 +576,18 @@ FString BPR_Extractor_Material::GetReadableExpressionName(UMaterialExpression* E
 
 FString BPR_Extractor_Material::MakeIndent(int32 Level)
 {
-	return FString::ChrN(Level * 2, ' '); // 2 пробела на уровень
+	return FString::ChrN(Level * 2, ' '); // 2 spaces per level
 }
 
 bool BPR_Extractor_Material::IsTransparentExpression(UMaterialExpression* Expression)
 {
 	if (!Expression) return false;
 
-	// Reroute — всегда
+	// Reroute — Always
 	if (Expression->IsA<UMaterialExpressionReroute>()) return true;
 	if (Expression->IsA<UMaterialExpressionNamedRerouteUsage>()) return true;
 
-	// Declaration — особый случай (логически прозрачна)
+	// Declaration is a special case (logically transparent)
 	if (Expression->IsA<UMaterialExpressionNamedRerouteDeclaration>()) return true;
 
 	return false;
@@ -617,17 +617,17 @@ UMaterialExpression* BPR_Extractor_Material::ResolveExpression(UMaterialExpressi
 
 		Visited.Add(Current);
 
-		// Получаем входы expression (разыменованные)
+		// Getting expression inputs (dereferenced)
 		TArray<UMaterialExpression*> InputExpressions;
 		Current->GetAllInputExpressions(InputExpressions);
 
 		if (InputExpressions.Num() == 0)
 		{
-			// прозрачная нода без входов
+			// transparent node without inputs
 			return nullptr;
 		}
 
-		// Для прозрачных нод берём первый вход
+		// transparent node without inputs
 		Current = InputExpressions[0];
 	}
 
@@ -642,7 +642,7 @@ FString BPR_Extractor_Material::GetReadableNodeName(UMaterialExpression* Expr, i
 	FString TypeName = Expr->GetClass()->GetName();
 	TypeName.RemoveFromStart(TEXT("MaterialExpression"));
 
-	// 1. Параметры
+	// 1. Parameters
 	if (auto* Scalar = Cast<UMaterialExpressionScalarParameter>(Expr))
 	{
 		if (!Scalar->ParameterName.IsNone())
@@ -658,7 +658,7 @@ FString BPR_Extractor_Material::GetReadableNodeName(UMaterialExpression* Expr, i
 		if (!Switch->ParameterName.IsNone())
 			return FString::Printf(TEXT("StaticSwitch_%s"), *Switch->ParameterName.ToString());
 	}
-	// 2. FunctionCall
+	// 2.FunctionCall
 	else if (auto* FuncCall = Cast<UMaterialExpressionMaterialFunctionCall>(Expr))
 	{
 		if (FuncCall->MaterialFunction)
@@ -671,7 +671,7 @@ FString BPR_Extractor_Material::GetReadableNodeName(UMaterialExpression* Expr, i
 			return FString::Printf(TEXT("Reroute_%s"), *Decl->Name.ToString());
 	}
 
-	// Фолбэк — тип + номер
+	// Fallback - type + number
 	return FString::Printf(TEXT("%s_%d"), *TypeName, NodeId);
 }
 
@@ -696,7 +696,7 @@ bool BPR_Extractor_Material::IsLogicalSourceExpression(
 
 	if (auto* Func = Cast<UMaterialExpressionMaterialFunctionCall>(Expr))
 	{
-		// позже можно уточнить имя функции
+		// later you can specify the function name
 		return true;
 	}
 
@@ -704,7 +704,7 @@ bool BPR_Extractor_Material::IsLogicalSourceExpression(
 }
 
 
-// Логгеры
+// Loggers
 void BPR_Extractor_Material::LogWarning(const FString& Msg)
 {
 	UE_LOG(LogTemp, Warning, TEXT("%s"), *Msg);

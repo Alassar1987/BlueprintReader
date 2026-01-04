@@ -15,8 +15,8 @@ struct FBPR_ExtractedData
 class SBPR_TextWidget;
 
 //==============================================================================
-//  BPR_Core — центральная логика извлечения данных
-//  (минимальная, только для ActorComponent и Actor на первом шаге)
+// BPR_Core - central data retrieval logic
+// (minimum, only for ActorComponent and Actor in the first step)
 //==============================================================================
 class BPR_Core
 {
@@ -26,7 +26,7 @@ public:
     ~BPR_Core() = default;
 
     //---------------------------------------------------------------------- 
-    //  Типы поддерживаемых ассетов
+    //  Types of Assets Supported
     //---------------------------------------------------------------------- 
     enum class EAssetType : uint8
     {
@@ -41,19 +41,19 @@ public:
     };
 
     //---------------------------------------------------------------------- 
-    //  Основная логика
+    //  General logic
     //---------------------------------------------------------------------- 
     bool IsSupportedAsset(UObject* Object);
     void ExtractorSelector(UObject* Object);
   
 
-    // --- Доступ к данным для UI ---
+    // --- Data access for UI ---
     const FBPR_ExtractedData& GetTextData() const { return TextData; }
 
 private:
 
     //---------------------------------------------------------------------- 
-    //  Состояние Core
+    //  State Core
     //---------------------------------------------------------------------- 
     EAssetType CachedType = EAssetType::Unknown;
 

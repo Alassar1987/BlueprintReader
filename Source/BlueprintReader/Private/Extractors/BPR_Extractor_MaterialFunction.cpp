@@ -26,7 +26,7 @@ BPR_Extractor_MaterialFunction::~BPR_Extractor_MaterialFunction() {}
 
 void BPR_Extractor_MaterialFunction::ProcessMaterialFunction(UObject* SelectedObject, FBPR_ExtractedData& OutData)
 {
-    // Пока пусто, просто логика проверки
+    // Empty for now, just checking logic
     if (!SelectedObject)
     {
         LogError(TEXT("SelectedObject is null!"));
@@ -74,7 +74,7 @@ void BPR_Extractor_MaterialFunction::ProcessMaterialFunction(UObject* SelectedOb
 }
 
 //==============================================================================
-// Структура Material Function
+// Material Function structure
 //==============================================================================
 void BPR_Extractor_MaterialFunction::AppendFunctionInfo(UMaterialFunction* Function, FString& OutText)
 {
@@ -94,7 +94,7 @@ void BPR_Extractor_MaterialFunction::AppendFunctionInputs(UMaterialFunction* Fun
 
     OutText += TEXT("## Function Inputs\n");
 
-    // Перебираем все Expression внутри функции
+    // Loop through all Expressions inside the function
     TArray<UMaterialExpression*> AllExpressions;
     for (UMaterialExpression* Expr : Function->GetExpressions())
     {
@@ -147,7 +147,7 @@ void BPR_Extractor_MaterialFunction::AppendFunctionOutputs(UMaterialFunction* Fu
 
     OutText += TEXT("## Function Outputs\n");
 
-    // Получаем все ExpressionOutput ноды
+    // Get all ExpressionOutput nodes
     TArray<UMaterialExpression*> AllExpressions;
     for (UObject* Obj : Function->GetExpressions())
     {
@@ -162,14 +162,14 @@ void BPR_Extractor_MaterialFunction::AppendFunctionOutputs(UMaterialFunction* Fu
     {
         if (!Expr) continue;
 
-        // Только FunctionOutput
+        // FunctionOutput only
         if (auto* Output = Cast<UMaterialExpressionFunctionOutput>(Expr))
         {
             FString OutputName = !Output->OutputName.IsNone() 
                                  ? Output->OutputName.ToString() 
                                  : TEXT("UnnamedOutput");
 
-            // Получаем Expression, подключенный к Output
+            // Get Expression connected to Output
             FString ConnectedExprName = TEXT("None");
             if (Output->A.Expression)
             {
@@ -189,7 +189,7 @@ void BPR_Extractor_MaterialFunction::AppendFunctionInstanceInfo(UMaterialFunctio
 
     OutText += FString::Printf(TEXT("MaterialFunctionInstance: %s\n"), *CleanName(Instance->GetName()));
 
-    // Родительская функция
+    // Parent function
     UMaterialFunctionInterface* ParentFuncInterface = Instance->Parent;
     if (ParentFuncInterface)
     {
@@ -290,8 +290,6 @@ void BPR_Extractor_MaterialFunction::AppendFunctionInstanceOverrides(UMaterialFu
 }
 
 
-
-
 //==============================================================================
 // Graph
 //==============================================================================
@@ -301,12 +299,12 @@ void BPR_Extractor_MaterialFunction::AppendFunctionGraph(UMaterialFunction* Func
 
     OutText += TEXT("## Function Graph\n");
 
-    // DAG структуры
+    // DAG structures
     TMap<UMaterialExpression*, int32> NodeIds;
     TMap<int32, FString> NodeTexts;
     int32 NextId = 1;
 
-    // Получаем все output-выражения функции
+    // Get all output expressions of the function
     TArray<UMaterialExpression*> FunctionOutputs;
     for (UMaterialExpression* Expr : Function->GetExpressions())
     {
@@ -316,7 +314,7 @@ void BPR_Extractor_MaterialFunction::AppendFunctionGraph(UMaterialFunction* Func
         }
     }
 
-    // Обрабатываем каждый output
+    // Process each output
     for (UMaterialExpression* OutputExpr : FunctionOutputs)
     {
         if (!OutputExpr) continue;
@@ -325,7 +323,7 @@ void BPR_Extractor_MaterialFunction::AppendFunctionGraph(UMaterialFunction* Func
 
         TArray<UMaterialExpression*> DirectExpressions;
 
-        // У FunctionOutput обычно есть только один вход
+        // FunctionOutput usually only has one input
         if (OutputExpr->GetInput(0) && OutputExpr->GetInput(0)->Expression)
         {
             DirectExpressions.Add(OutputExpr->GetInput(0)->Expression);
@@ -334,7 +332,7 @@ void BPR_Extractor_MaterialFunction::AppendFunctionGraph(UMaterialFunction* Func
         AppendFunctionOutput(OutputName, DirectExpressions, OutText, NodeIds, NodeTexts, NextId);
     }
 
-    // Добавляем все ноды в итоговый текст
+    // Add all nodes to the final text
     OutText += TEXT("\n## Nodes\n");
     for (auto& Pair : NodeTexts)
     {
@@ -366,28 +364,28 @@ void BPR_Extractor_MaterialFunction::AppendFunctionOutput(
         if (!Expr)
             continue;
 
-        // 1️⃣ Разрешаем прозрачные ноды
+        // 1️⃣ Allow transparent nodes
         UMaterialExpression* ResolvedExpr = ResolveExpression(Expr);
         if (!ResolvedExpr)
             continue;
 
-        // 2️⃣ Фильтруем логические источники
+        // 2️⃣ Filtering logical sources
         if (!IsLogicalSourceExpression(ResolvedExpr))
             continue;
 
-        // 3️⃣ Защита от повторов
+        // 3️⃣ Replay protection
         if (AddedExpressions.Contains(ResolvedExpr))
             continue;
 
         AddedExpressions.Add(ResolvedExpr);
 
-        // 4️⃣ Добавляем в DAG
+        // 4️⃣ Add to DAG
         if (!NodeIds.Contains(ResolvedExpr))
         {
             ProcessExpressionDAG(ResolvedExpr, NodeIds, NodeTexts, NextId);
         }
 
-        // 5️⃣ Читаемое имя
+        // 5️⃣ Readable name
         DirectNames.Add(GetReadableNodeName(ResolvedExpr, NodeIds[ResolvedExpr]));
     }
 
@@ -411,7 +409,7 @@ void BPR_Extractor_MaterialFunction::ProcessExpressionDAG(
     if (!Expression)
         return;
 
-    // Уже обработано
+    // Already processed
     if (NodeIds.Contains(Expression))
         return;
 
@@ -433,7 +431,7 @@ void BPR_Extractor_MaterialFunction::ProcessExpressionDAG(
         {
             UMaterialExpression* ChildExpr = Input->Expression;
 
-            // Рекурсивный обход
+            // Recursive traversal
             ProcessExpressionDAG(ChildExpr, NodeIds, NodeTexts, NextId);
 
             int32 ChildId = NodeIds[ChildExpr];
@@ -458,13 +456,13 @@ FString BPR_Extractor_MaterialFunction::GetReadableExpressionName(UMaterialExpre
     if (!Expression)
         return TEXT("None");
 
-    // 1. Базовый тип
+    // 1. Basic type
     FString ClassName = Expression->GetClass()->GetName();
     ClassName.RemoveFromStart(TEXT("MaterialExpression"));
 
     FString Result = ClassName;
 
-    // 2. Частные случаи (важные для MF)
+    // 2. Special cases (important for MF)
     if (auto* Scalar = Cast<UMaterialExpressionScalarParameter>(Expression))
     {
         Result = FString::Printf(
@@ -502,7 +500,7 @@ FString BPR_Extractor_MaterialFunction::GetReadableExpressionName(UMaterialExpre
         );
     }
 
-    // 3. Комментарий
+    // 3. Comment
     if (!Expression->Desc.IsEmpty())
     {
         Result += FString::Printf(TEXT(" // %s"), *Expression->Desc);
@@ -562,22 +560,22 @@ bool BPR_Extractor_MaterialFunction::HasAnyInputs(UMaterialExpression* Expressio
     if (!Expression)
         return false;
 
-    // Function Input — точка входа, не вычислительная нода
+    // Function Input - entry point, not a computational node
     if (Expression->IsA<UMaterialExpressionFunctionInput>())
         return false;
 
-    // Function Output — всегда имеет вход
+    // Function Output - always has an input
     if (Expression->IsA<UMaterialExpressionFunctionOutput>())
         return true;
 
-    // Константы и параметры
+    // Constants and parameters
     if (Expression->IsA<UMaterialExpressionConstant>() ||
         Expression->IsA<UMaterialExpressionConstant2Vector>() ||
         Expression->IsA<UMaterialExpressionConstant3Vector>() ||
         Expression->IsA<UMaterialExpressionConstant4Vector>())
         return false;
 
-    // По умолчанию считаем, что входы возможны
+    // By default, we assume that inputs are possible
     return true;
 }
 

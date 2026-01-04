@@ -25,7 +25,7 @@
 #include "UObject/Package.h"
 
 //==============================================================================
-// Helper functions для поиска Entry/Result нод
+// Helper functions for searching Entry/Result nodes
 //==============================================================================
 static UK2Node_FunctionEntry* FindFunctionEntryNodeInGraph(UEdGraph* Graph)
 {
@@ -422,20 +422,20 @@ void BPR_Extractor_Actor::AppendGraphSequence(UEdGraph* Graph, FString& OutExecT
 
     TSet<UEdGraphNode*> Visited;
 
-    // 1. Ищем входной узел функции
+    // 1. Looking for the input node of the function
     UEdGraphNode* StartNode = FindFunctionEntryNodeInGraph(Graph);
 
-    // 2. Если это не функция — начинаем с первого узла
+    // 2. If this is not a function, start from the first node
     if (!StartNode)
         StartNode = Graph->Nodes.Num() > 0 ? Graph->Nodes[0] : nullptr;
 
-    // 3. Обход EXEC-цепочки
+    // 3. EXEC chain bypass
     if (StartNode)
     {
         ProcessNodeSequence(StartNode, 0, Visited, OutExecText, OutDataText);
     }
 
-    // 4. Обработка вычислительных (pure) нод, которые не попали в exec-цепочку
+    // 4. Processing of computing (pure) nodes that are not included in the exec chain
     for (UEdGraphNode* Node : Graph->Nodes)
     {
         if (!Node || Visited.Contains(Node)) 
@@ -450,7 +450,7 @@ void BPR_Extractor_Actor::AppendGraphSequence(UEdGraph* Graph, FString& OutExecT
             OutDataText += FString::Printf(TEXT("[pure] %s (no exec)\n"), *NodeTitle);
             Visited.Add(Node);
 
-            // Обход всех data-пинов
+            // Bypass all data pins
             for (UEdGraphPin* Pin : Node->Pins)
             {
                 if (!Pin || Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec) 
@@ -498,12 +498,12 @@ void BPR_Extractor_Actor::ProcessNodeSequence(
 
     Visited.Add(Node);
 
-    // 1. Читаемое имя узла
+    // 1. Readable host name
     FString NodeTitle = GetReadableNodeName(Node);
     if (!Node->NodeComment.IsEmpty())
         NodeTitle += FString::Printf(TEXT(" // %s"), *Node->NodeComment);
 
-    // 2. Exec-путь или pure-нода
+    // 2. Exec path or pure node
     if (HasExecInput(Node))
     {
         OutExecText += FString::Printf(TEXT("%*s- %s\n"), 
@@ -520,7 +520,7 @@ void BPR_Extractor_Actor::ProcessNodeSequence(
             IndentLevel * 2, TEXT(""), *NodeTitle);
     }
 
-    // 3. Data-flow — non-exec пины
+    // 3. Data-flow - non-exec pins
     for (UEdGraphPin* Pin : Node->Pins)
     {
         if (!Pin || Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec) 
@@ -555,7 +555,7 @@ void BPR_Extractor_Actor::ProcessNodeSequence(
         }
     }
 
-    // 4. Exec-рекурсия
+    // 4. Exec recursion
     for (UEdGraphPin* Pin : Node->Pins)
     {
         if (!Pin || Pin->PinType.PinCategory != UEdGraphSchema_K2::PC_Exec) 
@@ -775,7 +775,7 @@ FString BPR_Extractor_Actor::CleanName(const FString& RawName)
     if (RawName.FindLastChar('_', UnderscoreIndex))
     {
         FString Tail = RawName.Mid(UnderscoreIndex + 1);
-        // Если хвост похож на GUID (32+ символов), обрезаем
+        // If the tail looks like a GUID (32+ characters), cut it off
         if (Tail.Len() >= 32)
         {
             Result = RawName.Left(UnderscoreIndex);

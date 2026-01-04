@@ -22,15 +22,15 @@ void BPR_Extractor_Structure::ProcessStructure(UObject* Object, FBPR_ExtractedDa
 		return;
 	}
 
-	// Если объект уже UScriptStruct — используем его
+	// If the object is already a UScriptStruct, use it
 	if (UScriptStruct* StructObj = Cast<UScriptStruct>(Object))
 	{
 		AppendStructInfo(StructObj, Result);
 	}
 	else
 	{
-		// В других случаях попробуем найти структуру в metadata класса (если это нужно)
-		// старый код пытался брать SuperStruct от класса — оставим ту же логику
+		// In other cases, let's try to find the structure in the metadata of the class (if necessary) 
+		// old code tried to take SuperStruct from a class - let's leave the same logic
 		if (UClass* Class = Object->GetClass())
 		{
 			UStruct* SuperStruct = Class->GetSuperStruct();
@@ -47,7 +47,7 @@ void BPR_Extractor_Structure::ProcessStructure(UObject* Object, FBPR_ExtractedDa
 	}
 
 	OutData.Structure = FText::FromString(Result);
-	OutData.Graph     = FText::FromString(TEXT("N/A")); // У структур графов нет
+	OutData.Graph     = FText::FromString(TEXT("N/A")); // Structures don't have graphs
 #else
 	OutData.Structure = FText::FromString(TEXT("Structure extraction available only in editor builds."));
 	OutData.Graph     = FText::FromString(TEXT("N/A"));
@@ -69,9 +69,9 @@ void BPR_Extractor_Structure::AppendStructInfo(UScriptStruct* Struct, FString& O
 		if (!Property)
 			continue;
 
-		// Имя и тип остаются как в старой реализации
+		// Name and type remain as in the old implementation
 		FString PropName = Property->GetNameCPP();
-		FString PropType = Property->GetClass()->GetName(); // например, FIntProperty, FFloatProperty
+		FString PropType = Property->GetClass()->GetName();
 
 		OutText += FString::Printf(TEXT("- **%s** : %s\n"), *PropName, *PropType);
 	}

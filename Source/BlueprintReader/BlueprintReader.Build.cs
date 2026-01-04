@@ -6,7 +6,7 @@ public class BlueprintReader : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		// Public всегда только Core
+		// Public is always only Core
 		PublicDependencyModuleNames.AddRange(
 			new string[] 
 			{
@@ -14,7 +14,7 @@ public class BlueprintReader : ModuleRules
 			}
 		);
 
-		// Всё остальное Private
+		// Everything else is Private
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
@@ -25,7 +25,7 @@ public class BlueprintReader : ModuleRules
 			}
 		);
 
-		// Editor-only зависимости
+		// Editor-only dependencies
 		if (Target.Type == TargetType.Editor)
 		{
 			PrivateDependencyModuleNames.AddRange(

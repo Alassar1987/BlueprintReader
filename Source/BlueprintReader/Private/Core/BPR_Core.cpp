@@ -14,8 +14,8 @@
 //==============================================================================
 //  IsSupportedAsset
 //==============================================================================
-//  Устанавливает CachedType и возвращает true, если поддерживается.
-//  Осторожно: этот метод выставляет CachedType как побочный эффект.
+// Sets CachedType and returns true if supported.
+// Beware: this method exposes CachedType as a side effect.
 //==============================================================================
 bool BPR_Core::IsSupportedAsset(UObject* Object)
 {

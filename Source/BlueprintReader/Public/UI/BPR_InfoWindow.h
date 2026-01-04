@@ -10,8 +10,8 @@
 
 
 /**
- * Простое информационное окно для уведомления пользователя
- * о неподдерживаемых ассетах или других сообщениях.
+ * Simple information window to notify the user
+ * about unsupported assets or other messages.
  */
 class BPR_InfoWindow
 {
@@ -20,25 +20,25 @@ public:
 	struct FParams
 	{
 		FText Title;
-		FText Message;           // Основное предупреждение, крупным шрифтом
-		FText SubMessage;        // Подробное пояснение
-		FString OptionalURL;     // URL для кнопки "Check for updates"
-		FText OptionalButtonText; // Текст кнопки для URL
+		FText Message;           // General warning, in large print
+		FText SubMessage;        // Detailed Explanation
+		FString OptionalURL;     // URL for the "Check for updates" button
+		FText OptionalButtonText; // Button text for URL
 	};
 
 	BPR_InfoWindow() = default;
 	~BPR_InfoWindow();
 
-	/** Создаёт и открывает окно с заданными параметрами */
+	/** Creates and opens a window with the specified parameters */
 	void Open(const FParams& Params);
 
 private:
-	/** Ссылка на окно Slate */
+	/** Link to Slate window */
 	TWeakPtr<SWindow> Window;
 
-	/** Обработчик кнопки ОК */
+	/** OK button handler */
 	FReply OnOkClicked();
 
-	/** Обработчик кнопки URL */
+	/** URL Button Handler */
 	FReply OnUrlClicked(const FString& Url);
 };

@@ -14,20 +14,20 @@ public:
     void SetText(const FText& InText);
 
 protected:
-    // Перехватываем колесо мыши
+    // Intercepting the mouse wheel
     virtual FReply OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 
 private:
-    // Применяет текущий размер шрифта к текстовому блоку
+    // Applies the current font size to a text block
     void UpdateFont();
 
 private:
     TSharedPtr<SMultiLineEditableText> MultiLineText;
     TSharedPtr<SScrollBox> ScrollBox;
 
-    // Базовый размер шрифта
+    // Base font size
     int32 BaseFontSize = 12;
 
-    // Текущий масштаб текста (1.0 = нормальный размер)
+    // Current text scale (1.0 = normal size)
     float TextScale = 1.0f;
 };

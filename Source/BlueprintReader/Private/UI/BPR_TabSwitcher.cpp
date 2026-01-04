@@ -18,7 +18,7 @@ void SBPR_TabSwitcher::Construct(const FArguments& InArgs)
 	[
 		SNew(SVerticalBox)
 
-		// Панель кнопок вкладок
+		// Tab Button Bar
 		+ SVerticalBox::Slot()
 		.AutoHeight()
 		.Padding(5)
@@ -42,7 +42,7 @@ void SBPR_TabSwitcher::Construct(const FArguments& InArgs)
 			]
 		]
 
-		// Контент вкладок
+		// Tabs Content
 		+ SVerticalBox::Slot()
 		.FillHeight(1.f)
 		[

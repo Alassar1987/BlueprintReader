@@ -1,6 +1,5 @@
 #include "Extractors/BPR_Extractor_ActorComponent.h"
 #include "Engine/Blueprint.h"
-#include "Kismet2/BlueprintEditorUtils.h"
 #include "UObject/UnrealType.h"
 #include "EdGraph/EdGraph.h"
 #include "EdGraphSchema_K2.h"
@@ -11,21 +10,12 @@
 #include "K2Node_IfThenElse.h"
 #include "K2Node_Switch.h"
 #include "K2Node_Tunnel.h"
-#include "K2Node_MacroInstance.h"
 #include "K2Node_VariableGet.h"
 #include "K2Node_VariableSet.h"
-#include "Net/UnrealNetwork.h"
 #include "K2Node_Knot.h"
 #include "K2Node_MathExpression.h"
-#include "K2Node_IfThenElse.h"
 #include "K2Node_Select.h"
 #include "K2Node_DynamicCast.h"
-#include "K2Node_CastByteToEnum.h"
-#include "K2Node_CallFunction.h"
-#include "K2Node_Knot.h"
-#include "K2Node_DynamicCast.h"
-#include "K2Node_Select.h"
-#include "K2Node_MathExpression.h"
 #include "K2Node_CastByteToEnum.h"
 #include "EdGraphSchema_K2.h"
 
@@ -34,7 +24,7 @@ BPR_Extractor_ActorComponent::BPR_Extractor_ActorComponent() {}
 BPR_Extractor_ActorComponent::~BPR_Extractor_ActorComponent() {}
 
 //---------------------------------------------
-// Главная точка входа
+// Main entry point
 //---------------------------------------------
 void BPR_Extractor_ActorComponent::ProcessComponent(UObject* SelectedObject, FBPR_ExtractedData& OutData)
 {
@@ -68,14 +58,14 @@ void BPR_Extractor_ActorComponent::ProcessComponent(UObject* SelectedObject, FBP
 }
 
 //---------------------------------------------
-// Логирование
+// Logging
 //---------------------------------------------
 void BPR_Extractor_ActorComponent::LogMessage(const FString& Msg) { UE_LOG(LogTemp, Log, TEXT("[BPR_Extractor_ActorComponent] %s"), *Msg); }
 void BPR_Extractor_ActorComponent::LogWarning(const FString& Msg) { UE_LOG(LogTemp, Warning, TEXT("[BPR_Extractor_ActorComponent] %s"), *Msg); }
 void BPR_Extractor_ActorComponent::LogError(const FString& Msg) { UE_LOG(LogTemp, Error, TEXT("[BPR_Extractor_ActorComponent] %s"), *Msg); }
 
 //---------------------------------------------
-// Общая информация о Blueprint
+// General information about Blueprint
 //---------------------------------------------
 void BPR_Extractor_ActorComponent::AppendBlueprintInfo(UBlueprint* Blueprint, FString& OutText)
 {
@@ -102,7 +92,7 @@ void BPR_Extractor_ActorComponent::AppendBlueprintInfo(UBlueprint* Blueprint, FS
 }
 
 //---------------------------------------------
-// Переменные
+// Variables
 //---------------------------------------------
 void BPR_Extractor_ActorComponent::AppendVariables(UBlueprint* Blueprint, FString& OutText)
 {
@@ -219,7 +209,7 @@ bool BPR_Extractor_ActorComponent::IsUserVariable(FProperty* Property)
 }
 
 //---------------------------------------------
-// Репликация
+// Replication
 //---------------------------------------------
 void BPR_Extractor_ActorComponent::AppendReplicationInfo(UClass* Class, FString& OutText)
 {
@@ -419,20 +409,20 @@ void BPR_Extractor_ActorComponent::AppendGraphSequence(UEdGraph* Graph, FString&
 
     TSet<UEdGraphNode*> Visited;
 
-    // 1. Ищем входной узел функции
+    // 1. We are looking for the input node of the function
     UEdGraphNode* StartNode = FindFunctionEntryNodeInGraph(Graph);
 
-    // 2. Если это не функция — начинаем с первого узла
+    // 2. If this is not a function, start from the first node
     if (!StartNode)
         StartNode = Graph->Nodes.Num() > 0 ? Graph->Nodes[0] : nullptr;
 
-    // 3. Обход EXEC-цепочки
+    // 3. EXEC chain bypass
     if (StartNode)
     {
         ProcessNodeSequence(StartNode, 0, Visited, OutExecText, OutDataText);
     }
 
-    // 4. Обработка вычислительных (pure) нод, которые не попали в exec-цепочку
+    // 4. Processing of computing (pure) nodes that are not included in the exec chain
     for (UEdGraphNode* Node : Graph->Nodes)
     {
         if (!Node || Visited.Contains(Node)) 
@@ -471,7 +461,7 @@ void BPR_Extractor_ActorComponent::AppendGraphSequence(UEdGraph* Graph, FString&
                     OutDataText += FString::Printf(TEXT("   [data] %s.%s → %s.%s\n"),
                         *NodeTitle, *PinName, *TargetNodeName, *TargetPinName);
 
-                    // рекурсивный обход для цепочки data-flow
+                    // recursive traversal for data-flow chain
                     if (!Visited.Contains(LinkedTo->GetOwningNode()))
                     {
                         ProcessNodeSequence(LinkedTo->GetOwningNode(), 1, Visited, OutExecText, OutDataText);
@@ -502,14 +492,14 @@ void BPR_Extractor_ActorComponent::ProcessNodeSequence(
     Visited.Add(Node);
 
     // ----------------------------
-    // 1. Читаемое имя узла
+    // 1. Readable host name
     // ----------------------------
     FString NodeTitle = GetReadableNodeName(Node);
     if (!Node->NodeComment.IsEmpty())
         NodeTitle += FString::Printf(TEXT(" // %s"), *Node->NodeComment);
 
     // ----------------------------
-    // 2. Exec-путь или pure-нода
+    // 2. Exec path or pure node
     // ----------------------------
     if (HasExecInput(Node))
     {
@@ -518,19 +508,19 @@ void BPR_Extractor_ActorComponent::ProcessNodeSequence(
     }
     else if (IsComputationalNode(Node))
     {
-        // Узел без exec — выводим в data-flow
+        // Node without exec - output to data-flow
         OutDataText += FString::Printf(TEXT("%*s[pure] %s\n"), 
             IndentLevel * 2, TEXT(""), *NodeTitle);
     }
     else
     {
-        // Узел без exec, не вычисляет (например, Knot) — выводим для читаемости
+        // Node without exec, does not calculate (for example, Knot) - displayed for readability
         OutExecText += FString::Printf(TEXT("%*s- %s\n"), 
             IndentLevel * 2, TEXT(""), *NodeTitle);
     }
 
     // ----------------------------
-    // 3. Data-flow — non-exec пины
+    // 3. Data-flow — non-exec pins
     // ----------------------------
     for (UEdGraphPin* Pin : Node->Pins)
     {
@@ -552,7 +542,7 @@ void BPR_Extractor_ActorComponent::ProcessNodeSequence(
             OutDataText += FString::Printf(TEXT("%*s[data] %s.%s → %s.%s\n"),
                 (IndentLevel + 1) * 2, TEXT(""), *NodeTitle, *PinName, *TargetNodeName, *TargetPinName);
 
-            // Рекурсивный обход для data-flow
+            // Recursive traversal for data-flow
             if (!Visited.Contains(LinkedTo->GetOwningNode()) &&
                 IsComputationalNode(LinkedTo->GetOwningNode()))
             {
@@ -563,7 +553,7 @@ void BPR_Extractor_ActorComponent::ProcessNodeSequence(
     }
 
     // ----------------------------
-    // 4. Exec-рекурсия
+    // 4. Exec recursion
     // ----------------------------
     for (UEdGraphPin* Pin : Node->Pins)
     {
@@ -671,7 +661,7 @@ FString BPR_Extractor_ActorComponent::CleanName(const FString& RawName)
     if (RawName.FindLastChar('_', UnderscoreIndex))
     {
         FString Tail = RawName.Mid(UnderscoreIndex + 1);
-        // Если хвост похож на GUID (32+ символов), обрезаем
+        // If the tail is similar to a GUID (32+ characters), cut it off
         if (Tail.Len() >= 32)
         {
             Result = RawName.Left(UnderscoreIndex);
@@ -701,7 +691,7 @@ bool BPR_Extractor_ActorComponent::IsComputationalNode(UEdGraphNode* Node)
     if (Node->IsA(UK2Node_Knot::StaticClass()))
         return true;
 
-    // 2) MathExpression (если у тебя в проекте есть такие ноды)
+    // 2) MathExpression (if you have such nodes in your project)
     if (Node->IsA(UK2Node_MathExpression::StaticClass()))
         return true;
 
@@ -710,7 +700,7 @@ bool BPR_Extractor_ActorComponent::IsComputationalNode(UEdGraphNode* Node)
         Node->IsA(UK2Node_CastByteToEnum::StaticClass()))
         return true;
 
-    // 4) Select — обычно чистая выборка по условию
+    // 4) Select - usually pure selection by condition
     if (Node->IsA(UK2Node_Select::StaticClass()))
         return true;
 

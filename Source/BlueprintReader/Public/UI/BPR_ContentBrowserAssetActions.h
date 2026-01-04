@@ -2,29 +2,27 @@
 
 #include "CoreMinimal.h"
 #include "ToolMenus.h"
-#include "ContentBrowserModule.h"
-#include "IContentBrowserSingleton.h"
 #include "AssetRegistry/AssetData.h"
 
 //==============================================================================
 //  BPR_ContentBrowserAssetActions
 //
-//  Только ловит клик и передаёт ассет в модуль.
+//  It only catches the click and transfers the asset to the module.
 //==============================================================================
 
 class FBPR_ContentBrowserAssetActions
 {
 public:
-    /** Регистрирует пункт "Show BP as MD" в контекстном меню Content Browser */
+    /** Registers the "Show BP as MD" item in the Content Browser context menu */
     void Register();
 
-    /** Удаляет пункты меню, принадлежащие этому классу */
+    /** Removes menu items belonging to this class */
     void Unregister();
 
 private:
-    /** Обработчик клика на пункт "Show BP as MD" */
+    /** Click handler for the item "Show BP as MD" */
     void OnShowBPAsMDClicked();
 
-    /** Получает первый выделенный ассет */
+    /** Gets the first selected asset */
     UObject* GetSelectedAsset() const;
 };
