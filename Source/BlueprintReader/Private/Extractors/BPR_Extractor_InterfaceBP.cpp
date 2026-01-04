@@ -3,6 +3,7 @@
 #include "EdGraph/EdGraph.h"
 #include "EdGraphSchema_K2.h"
 #include "K2Node_FunctionEntry.h"
+#include "K2Node_FunctionResult.h"
 #include "EdGraph/EdGraphPin.h"
 
 BPR_Extractor_InterfaceBP::BPR_Extractor_InterfaceBP()
@@ -44,7 +45,7 @@ void BPR_Extractor_InterfaceBP::ProcessInterfaceBP(
 #endif
 }
 
-// Есть баг - перепутаны пины на ввод и вывод. Надо разбираться почему
+//
 void BPR_Extractor_InterfaceBP::AppendInterfaceFunctions(UBlueprint* BP, FString& OutText)
 {
     if (!BP)
@@ -58,46 +59,74 @@ void BPR_Extractor_InterfaceBP::AppendInterfaceFunctions(UBlueprint* BP, FString
             continue;
 
         FString FunctionName = Graph->GetName();
-        OutText += FString::Printf(TEXT("- %s\n"), *FunctionName);
+        OutText += FString::Printf(TEXT("### %s\n"), *FunctionName);
 
-        // Ищем ноду FunctionEntry
+        UK2Node_FunctionEntry* EntryNode = nullptr;
+        UK2Node_FunctionResult* ResultNode = nullptr;
+
+        // Ищем Entry и Result ноды
         for (UEdGraphNode* Node : Graph->Nodes)
         {
-            if (UK2Node_FunctionEntry* EntryNode = Cast<UK2Node_FunctionEntry>(Node))
+            if (!EntryNode)
+                EntryNode = Cast<UK2Node_FunctionEntry>(Node);
+            if (!ResultNode)
+                ResultNode = Cast<UK2Node_FunctionResult>(Node);
+            
+            if (EntryNode && ResultNode)
+                break;
+        }
+
+        // Обрабатываем входные параметры (из FunctionEntry)
+        if (EntryNode)
+        {
+            for (UEdGraphPin* Pin : EntryNode->Pins)
             {
-                // Один проход по пинам
-                for (UEdGraphPin* Pin : EntryNode->Pins)
+                if (!Pin || Pin->bHidden)
+                    continue;
+
+                if (Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec)
+                    continue;
+
+                if (Pin->Direction != EGPD_Output)
+                    continue;
+
+                FString ParamName = Pin->PinName.ToString();
+                FString ParamType = Pin->PinType.PinCategory.ToString();
+                
+                if (Pin->PinType.PinSubCategoryObject.IsValid())
                 {
-                    if (!Pin || Pin->bHidden)
-                        continue;
-
-                    FString ParamName = Pin->PinName.ToString();
-                    FString ParamType = Pin->PinType.PinCategory.ToString();
-
-                    if (Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec)
-                    {
-                        // Exec-пины всегда как Output then
-                        if (Pin->Direction == EGPD_Output)
-                        {
-                            OutText += TEXT("    - Output then : exec\n");
-                        }
-                        // Игнорируем входящий Exec
-                    }
-                    else
-                    {
-                        // Проверяем направление и ссылочность
-                        if (Pin->Direction == EGPD_Output && Pin->PinType.bIsReference)
-                        {
-                            // Output параметр
-                            OutText += FString::Printf(TEXT("    - Output %s : %s\n"), *ParamName, *ParamType);
-                        }
-                        else
-                        {
-                            // Input параметр
-                            OutText += FString::Printf(TEXT("    - Input %s : %s\n"), *ParamName, *ParamType);
-                        }
-                    }
+                    ParamType = Pin->PinType.PinSubCategoryObject->GetName();
                 }
+
+                OutText += FString::Printf(TEXT("- **Input** %s : %s\n"), *ParamName, *ParamType);
+            }
+        }
+
+        // Обрабатываем выходные параметры (из FunctionResult)
+        if (ResultNode)
+        {
+            for (UEdGraphPin* Pin : ResultNode->Pins)
+            {
+                if (!Pin || Pin->bHidden)
+                    continue;
+
+                if (Pin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec)
+                    continue;
+
+                // На FunctionResult выходные параметры имеют Direction == Input
+                // (данные "входят" в Result из графа)
+                if (Pin->Direction != EGPD_Input)
+                    continue;
+
+                FString ParamName = Pin->PinName.ToString();
+                FString ParamType = Pin->PinType.PinCategory.ToString();
+                
+                if (Pin->PinType.PinSubCategoryObject.IsValid())
+                {
+                    ParamType = Pin->PinType.PinSubCategoryObject->GetName();
+                }
+
+                OutText += FString::Printf(TEXT("- **Output** %s : %s\n"), *ParamName, *ParamType);
             }
         }
 
@@ -109,6 +138,3 @@ void BPR_Extractor_InterfaceBP::AppendInterfaceFunctions(UBlueprint* BP, FString
         OutText += TEXT("_No functions defined in this interface._\n\n");
     }
 }
-
-
-
