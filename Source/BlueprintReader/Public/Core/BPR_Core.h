@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Racoon Coder. All rights reserved.
+
 #pragma once
 
 #include "CoreMinimal.h"
