@@ -10,16 +10,9 @@ Useful for documentation, code review, AI-assisted development, or simply unders
 
 ## Features
 
-- **One-click extraction** — Right-click any supported asset in Content Browser → "Read Bluprint for AI Assistant"
-- **Two-panel output** — Structure tab (variables, components, parameters) and Graph tab (execution flow, data connections)
-- **Multiple asset types supported:**
-  - Actor Blueprints
-  - Actor Component Blueprints
-  - Blueprint Interfaces
-  - Materials & Material Instances
-  - Material Functions & Material Function Instances
-  - Enumerations
-  - Structures
+- **One-click extraction** — Right-click any supported asset in Content Browser → "Read Bluprint for AI Assistant";
+- **Two-panel output** — Structure tab (variables, components, parameters) and Graph tab (execution flow, data connections);
+- **Multiple asset types supported;**
 
 ## Installation:
 
@@ -37,13 +30,13 @@ Copy text (Ctrl+A, Ctrl+C) and paste to AI assistant
 
 ## Supported Assets:
 
-Actor/Pawn/Character Blueprints
-Actor Component Blueprints
-Blueprint Interfaces
-Materials & Material Instances
-Material Functions & Material Function Instances
-Enumerations
-Structures
+- Actor/Pawn/Character Blueprints;
+- Actor Component Blueprints;
+- Blueprint Interfaces;
+- Materials & Material Instances;
+- Material Functions & Material Function Instances;
+- Enumerations;
+- Structures;
 
 ## Supported Unreal Engine Versions
 
