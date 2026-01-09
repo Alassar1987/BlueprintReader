@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Racoon Coder. All rights reserved.
+
 #include "Extractors/BPR_Extractor_Actor.h"
 #include "Engine/Blueprint.h"
 #include "UObject/UnrealType.h"

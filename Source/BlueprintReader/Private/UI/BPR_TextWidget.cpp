@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Racoon Coder. All rights reserved.
+
 #include "UI/BPR_TextWidget.h"
 #include "UI/BPR_ScrollBox.h"
 #include "Styling/CoreStyle.h"

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Racoon Coder. All rights reserved.
+
 #include "Extractors/BPR_Extractor_InterfaceBP.h"
 #include "Engine/Blueprint.h"
 #include "EdGraph/EdGraph.h"

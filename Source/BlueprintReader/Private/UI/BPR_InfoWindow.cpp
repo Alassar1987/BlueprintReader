@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Racoon Coder. All rights reserved.
+
 #include "UI/BPR_InfoWindow.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Widgets/Layout/SBox.h"

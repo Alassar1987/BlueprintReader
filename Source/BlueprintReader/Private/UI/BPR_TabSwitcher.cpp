@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Racoon Coder. All rights reserved.
+
 #include "UI/BPR_TabSwitcher.h"
 #include "UI/BPR_TextWidget.h"
 #include "Widgets/Layout/SWidgetSwitcher.h"
