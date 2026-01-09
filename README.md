@@ -10,7 +10,7 @@ Useful for documentation, code review, AI-assisted development, or simply unders
 
 ## Features
 
-- **One-click extraction** — Right-click any supported asset in Content Browser → "Show BP as MD"
+- **One-click extraction** — Right-click any supported asset in Content Browser → "Read Bluprint for AI Assistant"
 - **Two-panel output** — Structure tab (variables, components, parameters) and Graph tab (execution flow, data connections)
 - **Multiple asset types supported:**
   - Actor Blueprints
