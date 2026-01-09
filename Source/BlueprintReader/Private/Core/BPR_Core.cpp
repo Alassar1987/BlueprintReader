@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Racoon Coder. All rights reserved.
+
 #include "Core/BPR_Core.h"
 #include "Engine/Blueprint.h"
 #include "Extractors/BPR_Extractor_Actor.h"

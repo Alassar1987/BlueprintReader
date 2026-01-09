@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Racoon Coder. All rights reserved.
+
+
 #include "BlueprintReader.h"
 #include "Core/BPR_Core.h"
 #include "UI/BPR_OutputWindow.h"

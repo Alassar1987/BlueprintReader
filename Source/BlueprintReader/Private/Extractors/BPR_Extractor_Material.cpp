@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Racoon Coder. All rights reserved.
+
 #include "Extractors/BPR_Extractor_Material.h"
 #include "Core/BPR_Core.h"
 #include "Materials/MaterialExpression.h"
