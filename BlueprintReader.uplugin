@@ -1,7 +1,8 @@
 {
 	"FileVersion": 3,
 	"Version": 1,
-	"VersionName": "1.0",
+	"VersionName": "0.1",
+	"EngineVersion": "5.7.0",
 	"FriendlyName": "BlueprintReader",
 	"Description": "",
 	"Category": "Other",
@@ -11,7 +12,7 @@
 	"MarketplaceURL": "",
 	"SupportURL": "",
 	"CanContainContent": true,
-	"IsBetaVersion": false,
+	"IsBetaVersion": true,
 	"IsExperimentalVersion": false,
 	"Installed": false,
 	"EnabledByDefault": true,
@@ -19,7 +20,13 @@
 		{
 			"Name": "BlueprintReader",
 			"Type": "Editor",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "Default",
+			"PlatformAllowList": [
+				"Win64",
+				"Mac",
+				"Linux"
+			]
 		}
 	]
+
 }
