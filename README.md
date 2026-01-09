@@ -21,31 +21,29 @@ Useful for documentation, code review, AI-assisted development, or simply unders
   - Enumerations
   - Structures
 
-## Installation
+## Installation:
 
-1. Download or clone this repository
-2. Copy the `BlueprintReader` folder to your project's `Plugins` directory:
-```
-   YourProject/
-   └── Plugins/
-       └── BlueprintReader/
-           ├── BlueprintReader.uplugin
-           ├── Source/
-           └── ...
-```
-3. Restart Unreal Editor or regenerate project files
-4. Enable the plugin in Edit → Plugins → BlueprintReader (if not enabled automatically)
+Download from FAB
+Extract to YourProject/Plugins/BlueprintReader/
+Restart Unreal Editor
+Enable plugin in Edit → Plugins → BlueprintReader
 
-## Usage
+## How to Use:
 
-1. Open Content Browser
-2. Right-click on any supported asset
-3. Select **"Read Blueprint for AI"** from the context menu
-4. A window will open with two tabs:
-   - **Structure** — Variables, components, parameters, class info
-   - **Graph** — Execution flow, function calls, data connections
+Right-click any supported asset in Content Browser
+Select "Read Blueprint for AI"
+View results in Structure/Graph tabs
+Copy text (Ctrl+A, Ctrl+C) and paste to AI assistant
 
-**Tip:** Use `Ctrl + Mouse Wheel` to zoom text in the output window.
+## Supported Assets:
+
+Actor/Pawn/Character Blueprints
+Actor Component Blueprints
+Blueprint Interfaces
+Materials & Material Instances
+Material Functions & Material Function Instances
+Enumerations
+Structures
 
 ## Supported Unreal Engine Versions
 
