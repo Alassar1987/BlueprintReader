@@ -46,7 +46,6 @@ Copy text (Ctrl+A, Ctrl+C) and paste to AI assistant
 
 ## Known Limitations
 
-- Widget Blueprints — Work in progress
 - Other Classes — Work in progress  
 - Very complex Blueprints with 500+ nodes may take a moment to process
 
