@@ -23,6 +23,12 @@
 #include "StructUtils/UserDefinedStruct.h"
 #include "Engine/UserDefinedEnum.h"
 
+#include "Blueprint/BlueprintSupport.h"
+#include "Components/ActorComponent.h"
+#include "GameFramework/Actor.h"
+#include "UObject/Interface.h"
+#include "UObject/SoftObjectPath.h"
+
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 #include "Modules/ModuleManager.h"
@@ -33,13 +39,48 @@
 //------------------------------------------------------------------------------
 namespace
 {
-	FString ClassToTypeString(const FName& ClassName)
+	/** Resolves the first native parent class from an asset's registry tags. */
+	UClass* ResolveNativeParentClass(const FAssetData& Asset)
 	{
+		const FString Path = Asset.GetTagValueRef<FString>(FBlueprintTags::NativeParentClassPath);
+		if (Path.IsEmpty() || Path == TEXT("None"))
+		{
+			return nullptr;
+		}
+		const FSoftClassPath SoftPath(Path);
+		return SoftPath.TryLoadClass<UObject>();
+	}
+
+	/**
+	 * Maps an asset to its BlueprintReader type string. Distinct asset classes
+	 * (Widget/Material/...) are resolved by class name; everything else is a
+	 * Blueprint and is refined by its native parent class.
+	 */
+	FString AssetToTypeString(const FAssetData& Asset)
+	{
+		const FName ClassName = Asset.AssetClassPath.GetAssetName();
+
 		if (ClassName == UWidgetBlueprint::StaticClass()->GetFName())   return TEXT("Widget");
 		if (ClassName == UMaterial::StaticClass()->GetFName())          return TEXT("Material");
 		if (ClassName == UMaterialFunction::StaticClass()->GetFName())  return TEXT("MaterialFunction");
 		if (ClassName == UUserDefinedStruct::StaticClass()->GetFName()) return TEXT("Structure");
 		if (ClassName == UUserDefinedEnum::StaticClass()->GetFName())   return TEXT("Enum");
+
+		if (UClass* NativeParent = ResolveNativeParentClass(Asset))
+		{
+			if (NativeParent->IsChildOf(UInterface::StaticClass()))
+			{
+				return TEXT("Interface");
+			}
+			if (NativeParent->IsChildOf(UActorComponent::StaticClass()))
+			{
+				return TEXT("ActorComponent");
+			}
+			if (NativeParent->IsChildOf(AActor::StaticClass()))
+			{
+				return TEXT("Actor");
+			}
+		}
 		return TEXT("Blueprint");
 	}
 
@@ -199,7 +240,7 @@ namespace
 				{
 					continue;
 				}
-				const FString Type = ClassToTypeString(Asset.AssetClassPath.GetAssetName());
+				const FString Type = AssetToTypeString(Asset);
 				if (!TypeFilterLower.IsEmpty() && Type.ToLower() != TypeFilterLower)
 				{
 					continue;
