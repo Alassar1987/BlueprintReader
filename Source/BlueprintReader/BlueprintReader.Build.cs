@@ -49,13 +49,21 @@ public class BlueprintReader : ModuleRules
 					"WorkspaceMenuStructure",
 					"UMG",
 					"EditorStyle",
-					"DesktopPlatform",   // M4.2: native SaveFileDialog for export
-					"ToolsetRegistry"    // M7: UToolsetDefinition base for the MCP toolset
+					"DesktopPlatform"    // M4.2: native SaveFileDialog for export
 					// M6.0b: StateTreeModule/GameplayStateTreeModule/StateTreeEditorModule removed —
 					// unused in the codebase, vestigial dependency, link-risk on a 5.8 host without
 					// the StateTree plugin enabled.
 				}
 			);
+
+			// M7: Unreal MCP exists only in UE 5.8+ (ModelContextProtocol is a 5.8 plugin).
+			if (ReadOnlyBuildVersion.Current.MajorVersion > 5 ||
+				(ReadOnlyBuildVersion.Current.MajorVersion == 5 && ReadOnlyBuildVersion.Current.MinorVersion >= 8))
+			{
+				PrivateDependencyModuleNames.Add("ModelContextProtocol");
+				PrivateDependencyModuleNames.Add("Json");
+				PrivateDependencyModuleNames.Add("JsonUtilities");
+			}
 		}
 	}
 }

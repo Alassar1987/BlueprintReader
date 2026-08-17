@@ -12,9 +12,17 @@
 //   Do not add speculative guards for touchpoints that merely might change.
 #include "Misc/EngineVersionComparison.h"
 
+// M7: Unreal MCP (and the ToolsetRegistry it builds on) exists only in UE 5.8+.
+// Gate the MCP toolset behind this so the plugin still builds on 5.7.
+#if UE_VERSION_OLDER_THAN(5, 8, 0)
+	#define BPR_HAS_MCP 0
+#else
+	#define BPR_HAS_MCP 1
+#endif
+
 namespace BPR::Compat
 {
-	// Intentionally empty. See .grok/Private/M6_MIGRATION_PLAN.md for the reactive-shim policy
+	// Intentionally empty. See .docs/M6_MIGRATION_PLAN.md for the reactive-shim policy
 	// and the current list of MUST-VERIFY-on-5.8 touchpoints (material expression DAG walk is
 	// the most likely first tenant of this namespace).
 }

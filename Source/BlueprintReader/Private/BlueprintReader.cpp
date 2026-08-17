@@ -6,6 +6,7 @@
 #include "UI/BPR_ContentBrowserAssetActions.h"
 #include "UI/BPR_TabSwitcher.h"
 #include "UI/BPR_InfoWindow.h"
+#include "MCP/BPR_MCPTools.h"
 
 #include "Modules/ModuleManager.h"
 
@@ -40,6 +41,9 @@ void FBlueprintReaderModule::StartupModule()
 
     UE_LOG(LogBlueprintReader, Log, TEXT("FBlueprintReaderModule::StartupModule - Core registered, UI actions registered successfully"));
 #endif
+
+    // M7: register MCP tools (no-op unless UE 5.8 + Unreal MCP enabled)
+    RegisterBlueprintReaderMCPTools();
 }
 
 //==============================================================================
@@ -47,6 +51,8 @@ void FBlueprintReaderModule::StartupModule()
 //==============================================================================
 void FBlueprintReaderModule::ShutdownModule()
 {
+    UnregisterBlueprintReaderMCPTools();
+
 #if WITH_EDITOR
     if (ContentBrowserActions.IsValid())
     {
