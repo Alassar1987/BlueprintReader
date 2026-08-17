@@ -10,6 +10,7 @@
 #include "Core/BPR_Core.h"
 #include "Core/BPR_Types.h"
 #include "Export/BPR_Exporter.h"
+#include "MCP/BPR_AgentTypes.h"              // FBPR_AssetDump (structured output)
 
 #include "IModelContextProtocolModule.h"
 #include "IModelContextProtocolTool.h"
@@ -37,6 +38,8 @@
 #include "Async/Async.h"
 #include "CoreGlobals.h"
 #include "IO/IoHash.h"
+
+namespace MCP = UE::ModelContextProtocol;
 
 //------------------------------------------------------------------------------
 // Helpers
@@ -212,7 +215,7 @@ namespace
 		FString Name;
 		FString Description;
 		TSharedPtr<FJsonObject> InputSchema;
-		TFunction<FString(const TSharedPtr<FJsonObject>&)> Handler;
+		TFunction<FModelContextProtocolToolResult(const TSharedPtr<FJsonObject>&)> Handler;
 
 		virtual FString GetName() const override { return Name; }
 		virtual FString GetDescription() const override { return Description; }
@@ -223,8 +226,7 @@ namespace
 			// Synchronous path: game-thread only (handlers touch UObjects). The MCP server
 			// dispatches RunAsync, so this is a fallback for direct callers.
 			check(IsInGameThread());
-			const FString Text = Handler ? Handler(Params) : TEXT("no handler");
-			return UE::ModelContextProtocol::MakeTextResult(Text);
+			return Handler ? Handler(Params) : MCP::MakeErrorResult(TEXT("no handler"));
 		}
 
 		// The MCP server dispatches RunAsync (not Run) from its HTTP worker thread.
@@ -235,8 +237,7 @@ namespace
 		{
 			auto Execute = [Handler = Handler, Params]()
 			{
-				const FString Text = Handler ? Handler(Params) : TEXT("no handler");
-				return UE::ModelContextProtocol::MakeTextResult(Text);
+				return Handler ? Handler(Params) : MCP::MakeErrorResult(TEXT("no handler"));
 			};
 
 			if (IsInGameThread())
@@ -308,20 +309,23 @@ namespace
 
 	TArray<TSharedRef<IModelContextProtocolTool>> GRegisteredTools;
 
+	/** Saved package hash (FIoHash) as hex, or empty when unsaved/unavailable (defined below). */
+	FString GetPackageSavedHashString(FName PackageName);
+
 	//--------------------------------------------------------------------------
-	// Tool implementations (return text; structured output lands in M9)
+	// Tool implementations
 	//--------------------------------------------------------------------------
-	FString Impl_ListSupportedTypes(const TSharedPtr<FJsonObject>&)
+	FModelContextProtocolToolResult Impl_ListSupportedTypes(const TSharedPtr<FJsonObject>&)
 	{
 		const TArray<FString> Types = {
 			TEXT("Blueprint"), TEXT("Actor"), TEXT("ActorComponent"), TEXT("Widget"),
 			TEXT("Material"), TEXT("MaterialFunction"), TEXT("Enum"),
 			TEXT("Structure"), TEXT("Interface")
 		};
-		return FString::Join(Types, TEXT(", "));
+		return MCP::MakeTextResult(FString::Join(Types, TEXT(", ")));
 	}
 
-	FString Impl_SearchAssets(const TSharedPtr<FJsonObject>& Params)
+	FModelContextProtocolToolResult Impl_SearchAssets(const TSharedPtr<FJsonObject>& Params)
 	{
 		const FString Query = JsonGetString(Params, TEXT("query"));
 		const FString TypeFilter = JsonGetString(Params, TEXT("type_filter"));
@@ -372,59 +376,105 @@ namespace
 			}
 		}
 
-		return Lines.Num() > 0
+		const FString Result = Lines.Num() > 0
 			? FString::Printf(TEXT("%d asset(s):\n"), Lines.Num()) + FString::Join(Lines, TEXT("\n"))
 			: TEXT("No assets found.");
+		return MCP::MakeTextResult(Result);
 	}
 
-	FString Impl_ReadAsset(const TSharedPtr<FJsonObject>& Params)
+	/** True when the agent requested structured (JSON) output; default for read tools. */
+	bool IsJsonOutput(const TSharedPtr<FJsonObject>& Params)
+	{
+		const FString Output = JsonGetString(Params, TEXT("output"), TEXT("json")).TrimStartAndEnd().ToLower();
+		return Output == TEXT("json") || Output == TEXT("structured") || Output == TEXT("structured_content");
+	}
+
+	/** Builds a structured FBPR_AssetDump from extracted data + saved package hash. */
+	FBPR_AssetDump BuildAssetDump(const FBPR_ExtractedData& Data, const FString& Checksum)
+	{
+		FBPR_AssetDump Dump;
+		Dump.AssetPath = Data.AssetPath;
+		Dump.AssetName = Data.AssetName;
+		Dump.Type = BPR_Exporter::AssetTypeToString(Data.AssetType);
+		Dump.Structure = Data.Structure.ToString();
+		Dump.Graph = Data.Graph.ToString();
+		Dump.Design = Data.Design.ToString();
+		Dump.Checksum = Checksum;
+		return Dump;
+	}
+
+	FModelContextProtocolToolResult Impl_ReadAsset(const TSharedPtr<FJsonObject>& Params)
 	{
 		const FString Path = JsonGetString(Params, TEXT("asset_path"));
 		if (Path.IsEmpty())
 		{
-			return TEXT("Error: 'asset_path' is required.");
+			return MCP::MakeErrorResult(TEXT("Error: 'asset_path' is required."));
+		}
+
+		UObject* Asset = nullptr;
+		FString Error;
+		if (!ResolveAndLoadAsset(Path, Asset, Error))
+		{
+			return MCP::MakeErrorResult(Error);
+		}
+
+		BPR_Core* Core = GetCore();
+		if (!Core)
+		{
+			return MCP::MakeErrorResult(TEXT("Error: BlueprintReader Core is not initialized."));
 		}
 
 		FBPR_ExtractedData Data;
-		FString Error;
-		if (!ExtractAsset(Path, Data, Error))
-		{
-			return Error;
-		}
+		Core->ExtractAsset(Asset, Data);
 
 		if (Data.AssetType == EAssetType::Unknown)
 		{
-			return FString::Printf(TEXT("Error: asset '%s' is not a supported BlueprintReader type."), *Path);
+			return MCP::MakeErrorResult(FString::Printf(TEXT("Error: asset '%s' is not a supported BlueprintReader type."), *Path));
+		}
+
+		if (IsJsonOutput(Params))
+		{
+			const FString Checksum = GetPackageSavedHashString(Asset->GetOutermost()->GetFName());
+			return MCP::MakeStructuredContentResult(BuildAssetDump(Data, Checksum));
 		}
 
 		const EOutputFormat Format = BPR_Exporter::ParseOutputFormat(JsonGetString(Params, TEXT("format")));
 		const FString Markdown = BPR_Exporter::BuildMarkdown(Data, Format);
 		if (Markdown.IsEmpty())
 		{
-			return FString::Printf(TEXT("Error: no extractable data for asset '%s'."), *Path);
+			return MCP::MakeErrorResult(FString::Printf(TEXT("Error: no extractable data for asset '%s'."), *Path));
 		}
-		return Markdown;
+		return MCP::MakeTextResult(Markdown);
 	}
 
-	FString Impl_ReadAssetSection(const TSharedPtr<FJsonObject>& Params)
+	FModelContextProtocolToolResult Impl_ReadAssetSection(const TSharedPtr<FJsonObject>& Params)
 	{
 		const FString Path = JsonGetString(Params, TEXT("asset_path"));
 		const FString Section = JsonGetString(Params, TEXT("section"));
 		if (Path.IsEmpty())
 		{
-			return TEXT("Error: 'asset_path' is required.");
+			return MCP::MakeErrorResult(TEXT("Error: 'asset_path' is required."));
+		}
+
+		UObject* Asset = nullptr;
+		FString Error;
+		if (!ResolveAndLoadAsset(Path, Asset, Error))
+		{
+			return MCP::MakeErrorResult(Error);
+		}
+
+		BPR_Core* Core = GetCore();
+		if (!Core)
+		{
+			return MCP::MakeErrorResult(TEXT("Error: BlueprintReader Core is not initialized."));
 		}
 
 		FBPR_ExtractedData Data;
-		FString Error;
-		if (!ExtractAsset(Path, Data, Error))
-		{
-			return Error;
-		}
+		Core->ExtractAsset(Asset, Data);
 
 		if (Data.AssetType == EAssetType::Unknown)
 		{
-			return FString::Printf(TEXT("Error: asset '%s' is not a supported BlueprintReader type."), *Path);
+			return MCP::MakeErrorResult(FString::Printf(TEXT("Error: asset '%s' is not a supported BlueprintReader type."), *Path));
 		}
 
 		const FString SectionLower = Section.ToLower();
@@ -445,37 +495,43 @@ namespace
 		}
 		else
 		{
-			return FString::Printf(TEXT("Error: unknown section '%s'. Use one of: structure, graph, design."), *Section);
+			return MCP::MakeErrorResult(FString::Printf(TEXT("Error: unknown section '%s'. Use one of: structure, graph, design."), *Section));
+		}
+
+		if (IsJsonOutput(Params))
+		{
+			const FString Checksum = GetPackageSavedHashString(Asset->GetOutermost()->GetFName());
+			return MCP::MakeStructuredContentResult(BuildAssetDump(Data, Checksum));
 		}
 
 		const EOutputFormat Format = BPR_Exporter::ParseOutputFormat(JsonGetString(Params, TEXT("format")));
 		const FString Markdown = BPR_Exporter::BuildMarkdown(Data, Format);
 		if (Markdown.IsEmpty())
 		{
-			return FString::Printf(TEXT("Error: section '%s' is empty or not present for asset '%s'."), *Section, *Path);
+			return MCP::MakeErrorResult(FString::Printf(TEXT("Error: section '%s' is empty or not present for asset '%s'."), *Section, *Path));
 		}
-		return Markdown;
+		return MCP::MakeTextResult(Markdown);
 	}
 
-	FString Impl_ExportAsset(const TSharedPtr<FJsonObject>& Params)
+	FModelContextProtocolToolResult Impl_ExportAsset(const TSharedPtr<FJsonObject>& Params)
 	{
 		const FString Path = JsonGetString(Params, TEXT("asset_path"));
 		const FString OutputDir = JsonGetString(Params, TEXT("output_dir"));
 		if (Path.IsEmpty())
 		{
-			return TEXT("Error: 'asset_path' is required.");
+			return MCP::MakeErrorResult(TEXT("Error: 'asset_path' is required."));
 		}
 
 		FBPR_ExtractedData Data;
 		FString Error;
 		if (!ExtractAsset(Path, Data, Error))
 		{
-			return Error;
+			return MCP::MakeErrorResult(Error);
 		}
 
 		if (Data.AssetType == EAssetType::Unknown)
 		{
-			return FString::Printf(TEXT("Error: asset '%s' is not a supported BlueprintReader type."), *Path);
+			return MCP::MakeErrorResult(FString::Printf(TEXT("Error: asset '%s' is not a supported BlueprintReader type."), *Path));
 		}
 
 		FString Dir = OutputDir.IsEmpty()
@@ -486,16 +542,16 @@ namespace
 		const EOutputFormat Format = BPR_Exporter::ParseOutputFormat(JsonGetString(Params, TEXT("format")));
 		if (BPR_Exporter::BuildMarkdown(Data, Format).IsEmpty())
 		{
-			return FString::Printf(TEXT("Error: no extractable data for asset '%s'."), *Path);
+			return MCP::MakeErrorResult(FString::Printf(TEXT("Error: no extractable data for asset '%s'."), *Path));
 		}
 
 		const FString FullPath = FPaths::Combine(Dir, Data.AssetName + TEXT(".md"));
 		const FString Written = BPR_Exporter::ExportToFile(Data, FullPath, Format);
 		if (!Written.IsEmpty())
 		{
-			return Written;
+			return MCP::MakeTextResult(Written);
 		}
-		return FString::Printf(TEXT("Error: failed to write '%s'"), *FullPath);
+		return MCP::MakeErrorResult(FString::Printf(TEXT("Error: failed to write '%s'"), *FullPath));
 	}
 
 	//--------------------------------------------------------------------------
@@ -537,46 +593,46 @@ namespace
 #endif
 	}
 
-	FString Impl_GetChecksum(const TSharedPtr<FJsonObject>& Params)
+	FModelContextProtocolToolResult Impl_GetChecksum(const TSharedPtr<FJsonObject>& Params)
 	{
 		const FString Path = JsonGetString(Params, TEXT("asset_path"));
 		if (Path.IsEmpty())
 		{
-			return TEXT("Error: 'asset_path' is required.");
+			return MCP::MakeErrorResult(TEXT("Error: 'asset_path' is required."));
 		}
 
 		UObject* Asset = nullptr;
 		FString Error;
 		if (!ResolveAndLoadAsset(Path, Asset, Error))
 		{
-			return Error;
+			return MCP::MakeErrorResult(Error);
 		}
 
 		const FName PackageName = Asset->GetOutermost()->GetFName();
 		const FString Hash = GetPackageSavedHashString(PackageName);
 		if (Hash.IsEmpty())
 		{
-			return FString::Printf(
+			return MCP::MakeErrorResult(FString::Printf(
 				TEXT("Error: no saved package hash for '%s' (package may be unsaved or not on disk)."),
-				*PackageName.ToString());
+				*PackageName.ToString()));
 		}
-		return Hash;
+		return MCP::MakeTextResult(Hash);
 	}
 
-	FString Impl_GetReferences(const TSharedPtr<FJsonObject>& Params)
+	FModelContextProtocolToolResult Impl_GetReferences(const TSharedPtr<FJsonObject>& Params)
 	{
 		const FString Path = JsonGetString(Params, TEXT("asset_path"));
 		const FString Direction = JsonGetString(Params, TEXT("direction"), TEXT("dependencies"));
 		if (Path.IsEmpty())
 		{
-			return TEXT("Error: 'asset_path' is required.");
+			return MCP::MakeErrorResult(TEXT("Error: 'asset_path' is required."));
 		}
 
 		UObject* Asset = nullptr;
 		FString Error;
 		if (!ResolveAndLoadAsset(Path, Asset, Error))
 		{
-			return Error;
+			return MCP::MakeErrorResult(Error);
 		}
 
 		IAssetRegistry& AssetRegistry =
@@ -586,7 +642,7 @@ namespace
 		const FString DirectionLower = Direction.ToLower();
 		if (DirectionLower != TEXT("dependencies") && DirectionLower != TEXT("referencers"))
 		{
-			return FString::Printf(TEXT("Error: unknown direction '%s'. Use: dependencies | referencers."), *Direction);
+			return MCP::MakeErrorResult(FString::Printf(TEXT("Error: unknown direction '%s'. Use: dependencies | referencers."), *Direction));
 		}
 		const bool bReferencers = (DirectionLower == TEXT("referencers"));
 		TArray<FName> Refs;
@@ -602,7 +658,7 @@ namespace
 		const TCHAR* Label = bReferencers ? TEXT("referencers") : TEXT("dependencies");
 		if (Refs.Num() == 0)
 		{
-			return FString::Printf(TEXT("0 %s for '%s'."), Label, *PackageName.ToString());
+			return MCP::MakeTextResult(FString::Printf(TEXT("0 %s for '%s'."), Label, *PackageName.ToString()));
 		}
 
 		Refs.Sort(FNameLexicalLess());
@@ -611,22 +667,22 @@ namespace
 		{
 			Out += Ref.ToString() + TEXT("\n");
 		}
-		return Out.TrimEnd();
+		return MCP::MakeTextResult(Out.TrimEnd());
 	}
 
-	FString Impl_ValidateAsset(const TSharedPtr<FJsonObject>& Params)
+	FModelContextProtocolToolResult Impl_ValidateAsset(const TSharedPtr<FJsonObject>& Params)
 	{
 		const FString Path = JsonGetString(Params, TEXT("asset_path"));
 		if (Path.IsEmpty())
 		{
-			return TEXT("Error: 'asset_path' is required.");
+			return MCP::MakeErrorResult(TEXT("Error: 'asset_path' is required."));
 		}
 
 		UObject* Asset = nullptr;
 		FString Error;
 		if (!ResolveAndLoadAsset(Path, Asset, Error))
 		{
-			return Error;
+			return MCP::MakeErrorResult(Error);
 		}
 
 		FString Out;
@@ -702,7 +758,7 @@ namespace
 		Out += TEXT("## Verdict\n");
 		Out += FString::Printf(TEXT("- Valid: %s\n"), bValid ? TEXT("true") : TEXT("false"));
 
-		return Out;
+		return MCP::MakeTextResult(Out);
 	}
 }
 
@@ -714,21 +770,21 @@ namespace
 void RegisterBlueprintReaderMCPTools()
 {
 #if BPR_HAS_MCP
-	IModelContextProtocolModule* MCP = IModelContextProtocolModule::Get();
-	if (!MCP)
+	IModelContextProtocolModule* MCPModule = IModelContextProtocolModule::Get();
+	if (!MCPModule)
 	{
 		return; // Unreal MCP plugin not enabled — nothing to register.
 	}
 
-	auto Add = [&MCP](const FString& Name, const FString& Description,
-		TSharedPtr<FJsonObject> Schema, TFunction<FString(const TSharedPtr<FJsonObject>&)> Handler)
+	auto Add = [&MCPModule](const FString& Name, const FString& Description,
+		TSharedPtr<FJsonObject> Schema, TFunction<FModelContextProtocolToolResult(const TSharedPtr<FJsonObject>&)> Handler)
 	{
 		TSharedRef<FBPR_MCPTool> Tool = MakeShared<FBPR_MCPTool>();
 		Tool->Name = Name;
 		Tool->Description = Description;
 		Tool->InputSchema = Schema;
 		Tool->Handler = Handler;
-		if (MCP->AddTool(Tool))
+		if (MCPModule->AddTool(Tool))
 		{
 			GRegisteredTools.Add(Tool);
 		}
@@ -745,13 +801,14 @@ void RegisterBlueprintReaderMCPTools()
 		&Impl_SearchAssets);
 
 	Add(TEXT("read_blueprint_reader_asset"),
-		TEXT("Extracts a full BlueprintReader dump (Structure + Graph + Design) of the asset at asset_path, as Markdown. Optional 'format': human_readable | compact | minimal (default compact)."),
-		MakeInputSchema({ {TEXT("asset_path"), TEXT("string")}, {TEXT("format"), TEXT("string")} }, { TEXT("asset_path") }),
+		TEXT("Extracts the asset at asset_path. 'output': json (default, structured) | text (Markdown); 'format' applies to text output."),
+		MakeInputSchema({ {TEXT("asset_path"), TEXT("string")}, {TEXT("output"), TEXT("string")}, {TEXT("format"), TEXT("string")} },
+			{ TEXT("asset_path") }),
 		&Impl_ReadAsset);
 
 	Add(TEXT("read_blueprint_reader_asset_section"),
-		TEXT("Extracts a single section (structure | graph | design) of the asset at asset_path — cheaper on tokens. Optional 'format': human_readable | compact | minimal (default compact)."),
-		MakeInputSchema({ {TEXT("asset_path"), TEXT("string")}, {TEXT("section"), TEXT("string")}, {TEXT("format"), TEXT("string")} },
+		TEXT("Extracts a single section (structure | graph | design) of the asset at asset_path. 'output': json (default) | text."),
+		MakeInputSchema({ {TEXT("asset_path"), TEXT("string")}, {TEXT("section"), TEXT("string")}, {TEXT("output"), TEXT("string")}, {TEXT("format"), TEXT("string")} },
 			{ TEXT("asset_path"), TEXT("section") }),
 		&Impl_ReadAssetSection);
 
@@ -782,11 +839,11 @@ void RegisterBlueprintReaderMCPTools()
 void UnregisterBlueprintReaderMCPTools()
 {
 #if BPR_HAS_MCP
-	if (IModelContextProtocolModule* MCP = IModelContextProtocolModule::Get())
+	if (IModelContextProtocolModule* MCPModule = IModelContextProtocolModule::Get())
 	{
 		for (const TSharedRef<IModelContextProtocolTool>& Tool : GRegisteredTools)
 		{
-			MCP->RemoveTool(Tool);
+			MCPModule->RemoveTool(Tool);
 		}
 	}
 	GRegisteredTools.Empty();
