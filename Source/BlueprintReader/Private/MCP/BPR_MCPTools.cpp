@@ -220,6 +220,9 @@ namespace
 
 		virtual FModelContextProtocolToolResult Run(const TSharedPtr<FJsonObject>& Params) override
 		{
+			// Synchronous path: game-thread only (handlers touch UObjects). The MCP server
+			// dispatches RunAsync, so this is a fallback for direct callers.
+			check(IsInGameThread());
 			const FString Text = Handler ? Handler(Params) : TEXT("no handler");
 			return UE::ModelContextProtocol::MakeTextResult(Text);
 		}
@@ -580,7 +583,12 @@ namespace
 			FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
 
 		const FName PackageName = Asset->GetOutermost()->GetFName();
-		const bool bReferencers = Direction.ToLower() == TEXT("referencers");
+		const FString DirectionLower = Direction.ToLower();
+		if (DirectionLower != TEXT("dependencies") && DirectionLower != TEXT("referencers"))
+		{
+			return FString::Printf(TEXT("Error: unknown direction '%s'. Use: dependencies | referencers."), *Direction);
+		}
+		const bool bReferencers = (DirectionLower == TEXT("referencers"));
 		TArray<FName> Refs;
 		if (bReferencers)
 		{
