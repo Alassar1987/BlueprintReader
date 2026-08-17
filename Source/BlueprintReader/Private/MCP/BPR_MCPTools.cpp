@@ -312,6 +312,7 @@ namespace
 	}
 
 	TArray<TSharedRef<IModelContextProtocolTool>> GRegisteredTools;
+	FDelegateHandle GRefreshToolsHandle;
 
 	/** Saved package hash (FIoHash) as hex, or empty when unsaved/unavailable (defined below). */
 	FString GetPackageSavedHashString(FName PackageName);
@@ -866,6 +867,18 @@ void RegisterBlueprintReaderMCPTools()
 		TEXT("Validates the asset: compile status (Blueprints), dependency count + missing /Game/ packages, checksum, verdict."),
 		MakeInputSchema({ {TEXT("asset_path"), TEXT("string")} }, { TEXT("asset_path") }),
 		&Impl_ValidateAsset);
+
+	// ModelContextProtocol.RefreshTools releases ALL registered tools and then
+	// broadcasts OnRefreshTools; tool providers are expected to re-register here
+	// (see IModelContextProtocolModule.h). Without this, a RefreshTools would
+	// permanently drop the 8 BlueprintReader tools.
+	GRefreshToolsHandle = MCPModule->OnRefreshTools().AddLambda([MCPModule]()
+	{
+		for (const TSharedRef<IModelContextProtocolTool>& Tool : GRegisteredTools)
+		{
+			MCPModule->AddTool(Tool);
+		}
+	});
 #endif
 }
 
@@ -874,11 +887,13 @@ void UnregisterBlueprintReaderMCPTools()
 #if BPR_HAS_MCP
 	if (IModelContextProtocolModule* MCPModule = IModelContextProtocolModule::Get())
 	{
+		MCPModule->OnRefreshTools().Remove(GRefreshToolsHandle);
 		for (const TSharedRef<IModelContextProtocolTool>& Tool : GRegisteredTools)
 		{
 			MCPModule->RemoveTool(Tool);
 		}
 	}
 	GRegisteredTools.Empty();
+	GRefreshToolsHandle.Reset();
 #endif
 }
