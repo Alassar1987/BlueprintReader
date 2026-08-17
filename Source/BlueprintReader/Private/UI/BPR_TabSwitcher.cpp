@@ -11,13 +11,13 @@
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Text/STextBlock.h"
 
-// M4.2: export to file
+// M4.2: export to file (document assembly + disk write live in BPR_Exporter)
+#include "Export/BPR_Exporter.h"
 #include "DesktopPlatformModule.h"
 #include "IDesktopPlatform.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
-#include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 
 void SBPR_TabSwitcher::Construct(const FArguments& InArgs)
@@ -265,33 +265,18 @@ void SBPR_TabSwitcher::SwitchToTab(int32 Index)
 //==============================================================================
 // M4.2 — Export to file
 //==============================================================================
-FString SBPR_TabSwitcher::BuildExportDocument() const
-{
-    // Keep only sections that carry real content (extractors emit "N/A" / "No Data found" placeholders).
-    auto IsMeaningful = [](const FText& InText) -> bool
-    {
-        const FString S = InText.ToString().TrimStartAndEnd();
-        return !S.IsEmpty() && S != TEXT("N/A") && S != TEXT("No Data found");
-    };
-
-    FString Document;
-    if (IsMeaningful(CurrentData.Structure)) { Document += CurrentData.Structure.ToString(); Document += TEXT("\n\n"); }
-    if (IsMeaningful(CurrentData.Graph))     { Document += CurrentData.Graph.ToString();     Document += TEXT("\n\n"); }
-    if (IsMeaningful(CurrentData.Design))    { Document += CurrentData.Design.ToString();     Document += TEXT("\n\n"); }
-    return Document.TrimEnd();
-}
-
 FReply SBPR_TabSwitcher::OnExportClicked()
 {
-    const FString Document = BuildExportDocument();
-    if (Document.IsEmpty())
+    const UBPR_Settings* Settings = GetDefault<UBPR_Settings>();
+    const bool bMarkdown = (Settings == nullptr) || (Settings->ExportFormat == EBPR_ExportFormat::Markdown);
+
+    // Early-out when there is nothing meaningful to write (BPR_Exporter filters placeholders).
+    if (BPR_Exporter::BuildDocument(CurrentData, EOutputFormat::HumanReadable, bMarkdown).IsEmpty())
     {
         ShowNotification(FText::FromString("Nothing to export for this asset."), false);
         return FReply::Handled();
     }
 
-    const UBPR_Settings* Settings = GetDefault<UBPR_Settings>();
-    const bool bMarkdown = (Settings == nullptr) || (Settings->ExportFormat == EBPR_ExportFormat::Markdown);
     const FString Extension = bMarkdown ? TEXT("md") : TEXT("txt");
     const FString FileTypes = bMarkdown
         ? TEXT("Markdown Document (*.md)|*.md")
@@ -325,10 +310,10 @@ FReply SBPR_TabSwitcher::OnExportClicked()
     }
 
     const FString TargetPath = OutFilenames[0];
-    const bool bWritten = FFileHelper::SaveStringToFile(
-        Document, *TargetPath, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
+    const FString Written = BPR_Exporter::ExportToFile(
+        CurrentData, TargetPath, EOutputFormat::HumanReadable, bMarkdown);
 
-    if (bWritten)
+    if (!Written.IsEmpty())
     {
         ShowNotification(FText::FromString(
             FString::Printf(TEXT("Exported to %s"), *FPaths::GetCleanFilename(TargetPath))), true);

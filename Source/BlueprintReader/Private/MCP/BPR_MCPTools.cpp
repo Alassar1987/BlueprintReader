@@ -9,7 +9,7 @@
 #include "BlueprintReader.h"                 // FBlueprintReaderModule + GetCoreInstance()
 #include "Core/BPR_Core.h"
 #include "Core/BPR_Types.h"
-#include "MCP/BPR_AgentTypes.h"
+#include "Export/BPR_Exporter.h"
 
 #include "IModelContextProtocolModule.h"
 #include "IModelContextProtocolTool.h"
@@ -24,40 +24,22 @@
 #include "Engine/UserDefinedEnum.h"
 
 #include "HAL/FileManager.h"
-#include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Modules/ModuleManager.h"
 #include "UObject/UObjectGlobals.h"
 
 //------------------------------------------------------------------------------
-// Extraction core
+// Helpers
 //------------------------------------------------------------------------------
 namespace
 {
-	FString AssetTypeToString(EAssetType In)
-	{
-		switch (In)
-		{
-		case EAssetType::Blueprint:        return TEXT("Blueprint");
-		case EAssetType::Actor:            return TEXT("Actor");
-		case EAssetType::Widget:           return TEXT("Widget");
-		case EAssetType::Material:         return TEXT("Material");
-		case EAssetType::MaterialFunction: return TEXT("MaterialFunction");
-		case EAssetType::ActorComponent:   return TEXT("ActorComponent");
-		case EAssetType::Enum:             return TEXT("Enum");
-		case EAssetType::Structure:        return TEXT("Structure");
-		case EAssetType::InterfaceBP:      return TEXT("Interface");
-		default:                           return TEXT("Unknown");
-		}
-	}
-
 	FString ClassToTypeString(const FName& ClassName)
 	{
-		if (ClassName == UWidgetBlueprint::StaticClass()->GetFName())     return TEXT("Widget");
-		if (ClassName == UMaterial::StaticClass()->GetFName())            return TEXT("Material");
-		if (ClassName == UMaterialFunction::StaticClass()->GetFName())    return TEXT("MaterialFunction");
-		if (ClassName == UUserDefinedStruct::StaticClass()->GetFName())   return TEXT("Structure");
-		if (ClassName == UUserDefinedEnum::StaticClass()->GetFName())     return TEXT("Enum");
+		if (ClassName == UWidgetBlueprint::StaticClass()->GetFName())   return TEXT("Widget");
+		if (ClassName == UMaterial::StaticClass()->GetFName())          return TEXT("Material");
+		if (ClassName == UMaterialFunction::StaticClass()->GetFName())  return TEXT("MaterialFunction");
+		if (ClassName == UUserDefinedStruct::StaticClass()->GetFName()) return TEXT("Structure");
+		if (ClassName == UUserDefinedEnum::StaticClass()->GetFName())   return TEXT("Enum");
 		return TEXT("Blueprint");
 	}
 
@@ -68,74 +50,30 @@ namespace
 		return Mod.GetCoreInstance();
 	}
 
-	FBPR_AssetDump ExtractDump(const FString& AssetPath, const FString& Section)
+	/**
+	 * Resolves the asset at AssetPath and extracts it via BPR_Core.
+	 * Returns false and fills OutError when the asset cannot be loaded or Core is absent.
+	 */
+	bool ExtractAsset(const FString& AssetPath, FBPR_ExtractedData& OutData, FString& OutError)
 	{
-		FBPR_AssetDump Dump;
-		Dump.AssetPath = AssetPath;
-
 		UObject* Asset = LoadObject<UObject>(nullptr, *AssetPath);
 		if (!Asset)
 		{
-			Dump.Type = TEXT("NotFound");
-			Dump.Structure = FString::Printf(
+			OutError = FString::Printf(
 				TEXT("Error: asset not found at '%s'. Use search_blueprint_reader_assets to resolve a valid path."),
 				*AssetPath);
-			return Dump;
+			return false;
 		}
 
 		BPR_Core* Core = GetCore();
 		if (!Core)
 		{
-			Dump.Type = TEXT("Error");
-			Dump.Structure = TEXT("Error: BlueprintReader Core is not initialized.");
-			return Dump;
+			OutError = TEXT("Error: BlueprintReader Core is not initialized.");
+			return false;
 		}
 
-		FBPR_ExtractedData Data;
-		Core->ExtractAsset(Asset, Data);
-
-		Dump.AssetName = Data.AssetName;
-		Dump.Type = AssetTypeToString(Data.AssetType);
-
-		const FString SectionLower = Section.ToLower();
-		if (SectionLower == TEXT("graph"))
-		{
-			Dump.Graph = Data.Graph.ToString();
-		}
-		else if (SectionLower == TEXT("design"))
-		{
-			Dump.Design = Data.Design.ToString();
-		}
-		else if (SectionLower == TEXT("structure"))
-		{
-			Dump.Structure = Data.Structure.ToString();
-		}
-		else
-		{
-			Dump.Structure = Data.Structure.ToString();
-			Dump.Graph = Data.Graph.ToString();
-			Dump.Design = Data.Design.ToString();
-		}
-
-		// M7 placeholder checksum; real content hash arrives in M8.
-		Dump.Checksum = AssetPath;
-
-		return Dump;
-	}
-
-	FString DumpToMarkdown(const FBPR_AssetDump& Dump)
-	{
-		if (Dump.Type == TEXT("NotFound") || Dump.Type == TEXT("Error"))
-		{
-			return Dump.Structure;
-		}
-
-		FString Out;
-		Out += FString::Printf(TEXT("# %s (%s)\n\n"), *Dump.AssetName, *Dump.Type);
-		if (!Dump.Structure.IsEmpty()) { Out += TEXT("## Structure\n\n") + Dump.Structure + TEXT("\n\n"); }
-		if (!Dump.Graph.IsEmpty())     { Out += TEXT("## Graph\n\n")     + Dump.Graph     + TEXT("\n\n"); }
-		if (!Dump.Design.IsEmpty())    { Out += TEXT("## Design\n\n")    + Dump.Design    + TEXT("\n\n"); }
-		return Out;
+		Core->ExtractAsset(Asset, OutData);
+		return true;
 	}
 
 	//--------------------------------------------------------------------------
@@ -296,7 +234,14 @@ namespace
 		{
 			return TEXT("Error: 'asset_path' is required.");
 		}
-		return DumpToMarkdown(ExtractDump(Path, TEXT("")));
+
+		FBPR_ExtractedData Data;
+		FString Error;
+		if (!ExtractAsset(Path, Data, Error))
+		{
+			return Error;
+		}
+		return BPR_Exporter::BuildMarkdown(Data, EOutputFormat::Compact);
 	}
 
 	FString Impl_ReadAssetSection(const TSharedPtr<FJsonObject>& Params)
@@ -307,7 +252,36 @@ namespace
 		{
 			return TEXT("Error: 'asset_path' is required.");
 		}
-		return DumpToMarkdown(ExtractDump(Path, Section));
+
+		FBPR_ExtractedData Data;
+		FString Error;
+		if (!ExtractAsset(Path, Data, Error))
+		{
+			return Error;
+		}
+
+		const FString SectionLower = Section.ToLower();
+		if (SectionLower == TEXT("structure"))
+		{
+			Data.Graph = FText::GetEmpty();
+			Data.Design = FText::GetEmpty();
+		}
+		else if (SectionLower == TEXT("graph"))
+		{
+			Data.Structure = FText::GetEmpty();
+			Data.Design = FText::GetEmpty();
+		}
+		else if (SectionLower == TEXT("design"))
+		{
+			Data.Structure = FText::GetEmpty();
+			Data.Graph = FText::GetEmpty();
+		}
+		else
+		{
+			return FString::Printf(TEXT("Error: unknown section '%s'. Use one of: structure, graph, design."), *Section);
+		}
+
+		return BPR_Exporter::BuildMarkdown(Data, EOutputFormat::Compact);
 	}
 
 	FString Impl_ExportAsset(const TSharedPtr<FJsonObject>& Params)
@@ -319,10 +293,11 @@ namespace
 			return TEXT("Error: 'asset_path' is required.");
 		}
 
-		FBPR_AssetDump Dump = ExtractDump(Path, TEXT(""));
-		if (Dump.Type == TEXT("NotFound") || Dump.Type == TEXT("Error"))
+		FBPR_ExtractedData Data;
+		FString Error;
+		if (!ExtractAsset(Path, Data, Error))
 		{
-			return Dump.Structure;
+			return Error;
 		}
 
 		FString Dir = OutputDir.IsEmpty()
@@ -330,11 +305,11 @@ namespace
 			: OutputDir;
 		IFileManager::Get().MakeDirectory(*Dir, /*Tree=*/true);
 
-		const FString FullPath = FPaths::Combine(Dir, Dump.AssetName + TEXT(".md"));
-		if (FFileHelper::SaveStringToFile(DumpToMarkdown(Dump), *FullPath,
-			FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
+		const FString FullPath = FPaths::Combine(Dir, Data.AssetName + TEXT(".md"));
+		const FString Written = BPR_Exporter::ExportToFile(Data, FullPath, EOutputFormat::Compact);
+		if (!Written.IsEmpty())
 		{
-			return FullPath;
+			return Written;
 		}
 		return FString::Printf(TEXT("Error: failed to write '%s'"), *FullPath);
 	}

@@ -32,10 +32,8 @@ private:
 
 	void RebuildTabsFromData();
 
-	// M4.2: Export to file
+	// M4.2: Export to file (document assembly + disk write live in BPR_Exporter)
 	FReply OnExportClicked();
-	/** Concatenates the meaningful (non-N/A) sections of CurrentData into one document. */
-	FString BuildExportDocument() const;
 	/** Shows a transient editor notification (success/fail) after an export attempt. */
 	void ShowNotification(const FText& Message, bool bSuccess) const;
 
