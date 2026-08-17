@@ -383,7 +383,8 @@ namespace
 			return FString::Printf(TEXT("Error: asset '%s' is not a supported BlueprintReader type."), *Path);
 		}
 
-		const FString Markdown = BPR_Exporter::BuildMarkdown(Data, EOutputFormat::Compact);
+		const EOutputFormat Format = BPR_Exporter::ParseOutputFormat(JsonGetString(Params, TEXT("format")));
+		const FString Markdown = BPR_Exporter::BuildMarkdown(Data, Format);
 		if (Markdown.IsEmpty())
 		{
 			return FString::Printf(TEXT("Error: no extractable data for asset '%s'."), *Path);
@@ -433,7 +434,8 @@ namespace
 			return FString::Printf(TEXT("Error: unknown section '%s'. Use one of: structure, graph, design."), *Section);
 		}
 
-		const FString Markdown = BPR_Exporter::BuildMarkdown(Data, EOutputFormat::Compact);
+		const EOutputFormat Format = BPR_Exporter::ParseOutputFormat(JsonGetString(Params, TEXT("format")));
+		const FString Markdown = BPR_Exporter::BuildMarkdown(Data, Format);
 		if (Markdown.IsEmpty())
 		{
 			return FString::Printf(TEXT("Error: section '%s' is empty or not present for asset '%s'."), *Section, *Path);
@@ -467,13 +469,14 @@ namespace
 			: OutputDir;
 		IFileManager::Get().MakeDirectory(*Dir, /*Tree=*/true);
 
-		if (BPR_Exporter::BuildMarkdown(Data, EOutputFormat::Compact).IsEmpty())
+		const EOutputFormat Format = BPR_Exporter::ParseOutputFormat(JsonGetString(Params, TEXT("format")));
+		if (BPR_Exporter::BuildMarkdown(Data, Format).IsEmpty())
 		{
 			return FString::Printf(TEXT("Error: no extractable data for asset '%s'."), *Path);
 		}
 
 		const FString FullPath = FPaths::Combine(Dir, Data.AssetName + TEXT(".md"));
-		const FString Written = BPR_Exporter::ExportToFile(Data, FullPath, EOutputFormat::Compact);
+		const FString Written = BPR_Exporter::ExportToFile(Data, FullPath, Format);
 		if (!Written.IsEmpty())
 		{
 			return Written;
@@ -521,19 +524,19 @@ void RegisterBlueprintReaderMCPTools()
 		&Impl_SearchAssets);
 
 	Add(TEXT("read_blueprint_reader_asset"),
-		TEXT("Extracts a full BlueprintReader dump (Structure + Graph + Design) of the asset at asset_path, as Markdown."),
-		MakeInputSchema({ {TEXT("asset_path"), TEXT("string")} }, { TEXT("asset_path") }),
+		TEXT("Extracts a full BlueprintReader dump (Structure + Graph + Design) of the asset at asset_path, as Markdown. Optional 'format': human_readable | compact | minimal (default compact)."),
+		MakeInputSchema({ {TEXT("asset_path"), TEXT("string")}, {TEXT("format"), TEXT("string")} }, { TEXT("asset_path") }),
 		&Impl_ReadAsset);
 
 	Add(TEXT("read_blueprint_reader_asset_section"),
-		TEXT("Extracts a single section (structure | graph | design) of the asset at asset_path — cheaper on tokens."),
-		MakeInputSchema({ {TEXT("asset_path"), TEXT("string")}, {TEXT("section"), TEXT("string")} },
+		TEXT("Extracts a single section (structure | graph | design) of the asset at asset_path — cheaper on tokens. Optional 'format': human_readable | compact | minimal (default compact)."),
+		MakeInputSchema({ {TEXT("asset_path"), TEXT("string")}, {TEXT("section"), TEXT("string")}, {TEXT("format"), TEXT("string")} },
 			{ TEXT("asset_path"), TEXT("section") }),
 		&Impl_ReadAssetSection);
 
 	Add(TEXT("export_blueprint_reader_asset"),
-		TEXT("Exports the asset at asset_path to a .md file and returns the written file path."),
-		MakeInputSchema({ {TEXT("asset_path"), TEXT("string")}, {TEXT("output_dir"), TEXT("string")} },
+		TEXT("Exports the asset at asset_path to a .md file and returns the written file path. Optional 'output_dir' and 'format' (human_readable | compact | minimal, default compact)."),
+		MakeInputSchema({ {TEXT("asset_path"), TEXT("string")}, {TEXT("output_dir"), TEXT("string")}, {TEXT("format"), TEXT("string")} },
 			{ TEXT("asset_path") }),
 		&Impl_ExportAsset);
 #endif

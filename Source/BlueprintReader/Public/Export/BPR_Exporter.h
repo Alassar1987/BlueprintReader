@@ -21,6 +21,13 @@ namespace BPR_Exporter
 	BLUEPRINTREADER_API FString AssetTypeToString(EAssetType Type);
 
 	/**
+	 * Parses a format string to EOutputFormat. Accepted: "human_readable" (also
+	 * "humanreadable"/"human"/"full"), "minimal" (also "min"), "compact". Anything
+	 * else (including empty) falls back to Compact.
+	 */
+	BLUEPRINTREADER_API EOutputFormat ParseOutputFormat(const FString& FormatString);
+
+	/**
 	 * Builds the export document from extracted data.
 	 *
 	 * Only sections with real content are emitted; placeholder values ("N/A",

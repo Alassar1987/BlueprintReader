@@ -45,6 +45,7 @@ struct FBPR_ExtractedData
 	FText Design    = FText::FromString(TEXT("No Data found"));
 	EAssetType AssetType = EAssetType::Unknown;
 	FString AssetName;   // M4.2: source asset name, used as the default export filename
+	FString AssetPath;   // M7: full object path (/Game/...), for agent-readable dumps
 };
 
 enum class EOutputFormat : uint8

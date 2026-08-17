@@ -98,6 +98,8 @@ void BPR_Core::ExtractAsset(UObject* Asset, FBPR_ExtractedData& OutData)
 
     // M4.2: centrally record the asset name so the UI can offer a sensible export filename.
     OutData.AssetName = Asset->GetName();
+    // M7: record the full object path so agent-facing dumps can reference the source.
+    OutData.AssetPath = Asset->GetPathName();
 }
 
 BPR_Extractor_Base* BPR_Core::FindSuitableExtractor(UObject* Asset) const

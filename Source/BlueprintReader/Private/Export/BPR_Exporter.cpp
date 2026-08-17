@@ -34,13 +34,33 @@ FString AssetTypeToString(EAssetType Type)
 	}
 }
 
+EOutputFormat ParseOutputFormat(const FString& FormatString)
+{
+	const FString Lower = FormatString.TrimStartAndEnd().ToLower();
+	if (Lower == TEXT("human_readable") || Lower == TEXT("humanreadable") || Lower == TEXT("human") || Lower == TEXT("full"))
+	{
+		return EOutputFormat::HumanReadable;
+	}
+	if (Lower == TEXT("minimal") || Lower == TEXT("min"))
+	{
+		return EOutputFormat::Minimal;
+	}
+	return EOutputFormat::Compact; // "compact" and any unknown value
+}
+
 FString BuildDocument(const FBPR_ExtractedData& Data, EOutputFormat Format, bool bMarkdown)
 {
+	const bool bMinimal = (Format == EOutputFormat::Minimal);
+
 	// Collect meaningful sections in canonical order (Structure -> Graph -> Design).
 	TArray<TPair<FString, FString>> Sections;
 	if (IsMeaningful(Data.Structure)) Sections.Add(TPair<FString, FString>(TEXT("Structure"), Data.Structure.ToString()));
 	if (IsMeaningful(Data.Graph))     Sections.Add(TPair<FString, FString>(TEXT("Graph"),     Data.Graph.ToString()));
-	if (IsMeaningful(Data.Design))    Sections.Add(TPair<FString, FString>(TEXT("Design"),    Data.Design.ToString()));
+	// Design is a human-facing (Widget UI hierarchy) section; drop it in Minimal to save tokens.
+	if (!bMinimal && IsMeaningful(Data.Design))
+	{
+		Sections.Add(TPair<FString, FString>(TEXT("Design"), Data.Design.ToString()));
+	}
 
 	if (Sections.Num() == 0)
 	{
@@ -49,6 +69,7 @@ FString BuildDocument(const FBPR_ExtractedData& Data, EOutputFormat Format, bool
 
 	const FString Title = FString::Printf(
 		TEXT("%s (%s)"), *Data.AssetName, *AssetTypeToString(Data.AssetType));
+	const FString Path = Data.AssetPath;
 
 	FString Out;
 
@@ -56,8 +77,9 @@ FString BuildDocument(const FBPR_ExtractedData& Data, EOutputFormat Format, bool
 	{
 	case EOutputFormat::Minimal:
 	{
-		// Bare content: plain title line, then "Section:" headers, no Markdown symbols.
+		// Bare content: plain title + path, then "Section:" headers, no Markdown symbols.
 		Out += Title + TEXT("\n");
+		if (!Path.IsEmpty()) { Out += Path + TEXT("\n"); }
 		for (const TPair<FString, FString>& Section : Sections)
 		{
 			Out += Section.Key + TEXT(":\n") + Section.Value + TEXT("\n");
@@ -67,8 +89,9 @@ FString BuildDocument(const FBPR_ExtractedData& Data, EOutputFormat Format, bool
 
 	case EOutputFormat::Compact:
 	{
-		// Markdown headings with no decorative blank lines (token-balanced).
+		// Markdown headings, no decorative blank lines (token-balanced default for agents).
 		Out += (bMarkdown ? TEXT("# ") : TEXT("")) + Title + TEXT("\n");
+		if (!Path.IsEmpty()) { Out += (bMarkdown ? TEXT("> ") : TEXT("")) + Path + TEXT("\n"); }
 		for (const TPair<FString, FString>& Section : Sections)
 		{
 			Out += (bMarkdown ? TEXT("## ") : TEXT("")) + Section.Key + TEXT("\n");
@@ -82,6 +105,7 @@ FString BuildDocument(const FBPR_ExtractedData& Data, EOutputFormat Format, bool
 	{
 		// Full Markdown, spaced for humans.
 		Out += (bMarkdown ? TEXT("# ") : TEXT("")) + Title + TEXT("\n\n");
+		if (!Path.IsEmpty()) { Out += (bMarkdown ? TEXT("> ") : TEXT("")) + Path + TEXT("\n\n"); }
 		for (const TPair<FString, FString>& Section : Sections)
 		{
 			Out += (bMarkdown ? TEXT("## ") : TEXT("")) + Section.Key + TEXT("\n\n");
