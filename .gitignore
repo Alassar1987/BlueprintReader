@@ -76,8 +76,8 @@ DerivedDataCache/*
 # Internal documentation (Russian, Obsidian vault — local only)
 Docs/RU/
 
-# AI workspace (Russian instructions, local only)
-.grok/Private/
+# AI workspace — единый источник истины для агентов (private, not in git)
+.docs/
 
 # Grok MCP descriptors (local harness)
 mcps/
