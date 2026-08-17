@@ -329,7 +329,10 @@ namespace
 			for (const FAssetData& Asset : ClassAssets)
 			{
 				const FString Name = Asset.AssetName.ToString();
-				if (!Query.IsEmpty() && !Name.Contains(Query))
+				const FString Path = Asset.GetObjectPathString();
+				if (!Query.IsEmpty()
+					&& !Name.Contains(Query, ESearchCase::IgnoreCase)
+					&& !Path.Contains(Query, ESearchCase::IgnoreCase))
 				{
 					continue;
 				}
@@ -338,7 +341,6 @@ namespace
 				{
 					continue;
 				}
-				const FString Path = Asset.GetObjectPathString();
 				if (Seen.Contains(Path))
 				{
 					continue;
@@ -375,7 +377,18 @@ namespace
 		{
 			return Error;
 		}
-		return BPR_Exporter::BuildMarkdown(Data, EOutputFormat::Compact);
+
+		if (Data.AssetType == EAssetType::Unknown)
+		{
+			return FString::Printf(TEXT("Error: asset '%s' is not a supported BlueprintReader type."), *Path);
+		}
+
+		const FString Markdown = BPR_Exporter::BuildMarkdown(Data, EOutputFormat::Compact);
+		if (Markdown.IsEmpty())
+		{
+			return FString::Printf(TEXT("Error: no extractable data for asset '%s'."), *Path);
+		}
+		return Markdown;
 	}
 
 	FString Impl_ReadAssetSection(const TSharedPtr<FJsonObject>& Params)
@@ -392,6 +405,11 @@ namespace
 		if (!ExtractAsset(Path, Data, Error))
 		{
 			return Error;
+		}
+
+		if (Data.AssetType == EAssetType::Unknown)
+		{
+			return FString::Printf(TEXT("Error: asset '%s' is not a supported BlueprintReader type."), *Path);
 		}
 
 		const FString SectionLower = Section.ToLower();
@@ -415,7 +433,12 @@ namespace
 			return FString::Printf(TEXT("Error: unknown section '%s'. Use one of: structure, graph, design."), *Section);
 		}
 
-		return BPR_Exporter::BuildMarkdown(Data, EOutputFormat::Compact);
+		const FString Markdown = BPR_Exporter::BuildMarkdown(Data, EOutputFormat::Compact);
+		if (Markdown.IsEmpty())
+		{
+			return FString::Printf(TEXT("Error: section '%s' is empty or not present for asset '%s'."), *Section, *Path);
+		}
+		return Markdown;
 	}
 
 	FString Impl_ExportAsset(const TSharedPtr<FJsonObject>& Params)
@@ -434,10 +457,20 @@ namespace
 			return Error;
 		}
 
+		if (Data.AssetType == EAssetType::Unknown)
+		{
+			return FString::Printf(TEXT("Error: asset '%s' is not a supported BlueprintReader type."), *Path);
+		}
+
 		FString Dir = OutputDir.IsEmpty()
 			? FPaths::Combine(FPaths::ProjectDir(), TEXT("BPR-TEMP"))
 			: OutputDir;
 		IFileManager::Get().MakeDirectory(*Dir, /*Tree=*/true);
+
+		if (BPR_Exporter::BuildMarkdown(Data, EOutputFormat::Compact).IsEmpty())
+		{
+			return FString::Printf(TEXT("Error: no extractable data for asset '%s'."), *Path);
+		}
 
 		const FString FullPath = FPaths::Combine(Dir, Data.AssetName + TEXT(".md"));
 		const FString Written = BPR_Exporter::ExportToFile(Data, FullPath, EOutputFormat::Compact);
@@ -482,7 +515,7 @@ void RegisterBlueprintReaderMCPTools()
 		MakeInputSchema({}), &Impl_ListSupportedTypes);
 
 	Add(TEXT("search_blueprint_reader_assets"),
-		TEXT("Searches supported assets by name substring; optional type filter. Returns 'Name | Type | Path' lines."),
+		TEXT("Searches supported assets by name or path substring (case-insensitive); optional type filter. Returns 'Name | Type | Path' lines."),
 		MakeInputSchema({ {TEXT("query"), TEXT("string")}, {TEXT("type_filter"), TEXT("string")}, {TEXT("limit"), TEXT("integer")} },
 			{ TEXT("query") }),
 		&Impl_SearchAssets);
