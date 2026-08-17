@@ -14,7 +14,7 @@ BlueprintReader is the standard access layer for AI agents to UE assets: read vi
 - **Two-panel output** — Structure tab (variables, components, parameters) and Graph tab (execution flow, data connections);
 - **File export** — `.md` / `.txt` via the "Export" button;
 - **Multiple asset types supported**;
-- *(Roadmap)* **Native MCP tools** — read / export / validate assets from any MCP agent (Claude Code, Cursor, Codex, Gemini) over UE 5.8 `ModelContextProtocol`.
+- **Native MCP tools (UE 5.8)** — search / read / export / validate assets from any MCP agent (Claude Code, Cursor, Codex, Gemini) over the Unreal `ModelContextProtocol` server — 8 tools with structured JSON output.
 
 ## Installation
 
@@ -52,18 +52,21 @@ Single source tree. The plugin builds and works on both.
 
 ## MCP integration (UE 5.8)
 
-BlueprintReader is being extended with a native **MCP toolset** (`UBlueprintReaderToolset`) so any MCP-compatible AI agent can read, export, and validate Blueprints directly:
+BlueprintReader ships with a native **MCP toolset** (8 tools, direct registration) so any MCP-compatible AI agent can search, read, export, and validate assets directly:
 
 ```
-SearchAssets("BP_Enemy")  →  ReadAsset("/Game/Enemies/BP_Enemy")  →  ValidateAsset(...)  →  GetReferences(...)
+search_blueprint_reader_assets("BP_Enemy")
+  → read_blueprint_reader_asset("/Game/Enemies/BP_Enemy")     // structured JSON
+  → validate_blueprint_reader_asset(...)                       // compile status, deps, verdict
+  → get_blueprint_reader_references(...)                       // dependencies / referencers
+  → export_blueprint_reader_asset(...)                         // .md file
 ```
 
 ## Roadmap
 
-- **M4 ✅** — Export to file + plugin settings (done)
-- **M7** — MCP toolset (Search / Read / Export)
-- **M8** — Validation (compile status, broken refs, checksum)
-- **M9** — Agent optimization (structured JSON, section-scoped reads)
+- **M0–M9 ✅** — extraction, export, native MCP tools, validation, structured JSON.
+- **M6 (in progress)** — UE 5.7 ↔ 5.8 migration (single source; Fab packages).
+- **M10** — Write-back (agents as co-authors: edit nodes, add comments) — future.
 
 ## Known Limitations
 
