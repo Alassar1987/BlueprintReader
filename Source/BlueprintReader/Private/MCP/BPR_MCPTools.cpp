@@ -34,6 +34,9 @@
 #include "Modules/ModuleManager.h"
 #include "UObject/UObjectGlobals.h"
 
+#include "Async/Async.h"
+#include "CoreGlobals.h"
+
 //------------------------------------------------------------------------------
 // Helpers
 //------------------------------------------------------------------------------
@@ -208,6 +211,30 @@ namespace
 		{
 			const FString Text = Handler ? Handler(Params) : TEXT("no handler");
 			return UE::ModelContextProtocol::MakeTextResult(Text);
+		}
+
+		// The MCP server dispatches RunAsync (not Run) from its HTTP worker thread.
+		// LoadObject / AssetRegistry / BPR_Core::ExtractAsset are game-thread only, so hop
+		// to the game thread before executing the handler. Handler is captured by value, so
+		// the task stays valid even if this tool object is destroyed before the task runs.
+		virtual void RunAsync(const FModelContextProtocolToolRequestId& RequestId, const TSharedPtr<FJsonObject>& Params, const FResultCallback& OnComplete) override
+		{
+			auto Execute = [Handler = Handler, Params]()
+			{
+				const FString Text = Handler ? Handler(Params) : TEXT("no handler");
+				return UE::ModelContextProtocol::MakeTextResult(Text);
+			};
+
+			if (IsInGameThread())
+			{
+				OnComplete(Execute());
+				return;
+			}
+
+			AsyncTask(ENamedThreads::GameThread, [Execute = MoveTemp(Execute), OnComplete]()
+			{
+				OnComplete(Execute());
+			});
 		}
 	};
 
