@@ -88,7 +88,11 @@ namespace
 				return TEXT("Actor");
 			}
 		}
-		return TEXT("Blueprint");
+		// Unsupported blueprint subclasses (AnimBlueprint, ControlRig, DamageType,
+		// MacroLibrary, PCG nodes, ...) have no extractor. Return an empty type so
+		// SearchAssets skips them instead of advertising a "Blueprint" type that
+		// ReadAsset cannot actually handle.
+		return FString();
 	}
 
 	BPR_Core* GetCore()
@@ -318,7 +322,7 @@ namespace
 	FModelContextProtocolToolResult Impl_ListSupportedTypes(const TSharedPtr<FJsonObject>&)
 	{
 		const TArray<FString> Types = {
-			TEXT("Blueprint"), TEXT("Actor"), TEXT("ActorComponent"), TEXT("Widget"),
+			TEXT("Actor"), TEXT("ActorComponent"), TEXT("Widget"),
 			TEXT("Material"), TEXT("MaterialFunction"), TEXT("Enum"),
 			TEXT("Structure"), TEXT("Interface")
 		};
@@ -355,6 +359,10 @@ namespace
 					continue;
 				}
 				const FString Type = AssetToTypeString(Asset);
+				if (Type.IsEmpty())
+				{
+					continue; // no extractor for this blueprint subclass
+				}
 				if (!TypeFilterLower.IsEmpty() && Type.ToLower() != TypeFilterLower)
 				{
 					continue;
@@ -389,6 +397,19 @@ namespace
 		return Output == TEXT("json") || Output == TEXT("structured") || Output == TEXT("structured_content");
 	}
 
+	/** Validates the 'output' parameter (json | text); returns false + error on unknown value. */
+	bool ValidateOutputParam(const TSharedPtr<FJsonObject>& Params, FString& OutError)
+	{
+		const FString Output = JsonGetString(Params, TEXT("output"), TEXT("json")).TrimStartAndEnd().ToLower();
+		if (Output == TEXT("json") || Output == TEXT("structured") || Output == TEXT("structured_content")
+			|| Output == TEXT("text"))
+		{
+			return true;
+		}
+		OutError = FString::Printf(TEXT("Error: unknown output '%s'. Use: json | text."), *Output);
+		return false;
+	}
+
 	/** Builds a structured FBPR_AssetDump from extracted data + saved package hash. */
 	FBPR_AssetDump BuildAssetDump(const FBPR_ExtractedData& Data, const FString& Checksum)
 	{
@@ -409,6 +430,12 @@ namespace
 		if (Path.IsEmpty())
 		{
 			return MCP::MakeErrorResult(TEXT("Error: 'asset_path' is required."));
+		}
+
+		FString OutputError;
+		if (!ValidateOutputParam(Params, OutputError))
+		{
+			return MCP::MakeErrorResult(OutputError);
 		}
 
 		UObject* Asset = nullptr;
@@ -454,6 +481,12 @@ namespace
 		if (Path.IsEmpty())
 		{
 			return MCP::MakeErrorResult(TEXT("Error: 'asset_path' is required."));
+		}
+
+		FString OutputError;
+		if (!ValidateOutputParam(Params, OutputError))
+		{
+			return MCP::MakeErrorResult(OutputError);
 		}
 
 		UObject* Asset = nullptr;
