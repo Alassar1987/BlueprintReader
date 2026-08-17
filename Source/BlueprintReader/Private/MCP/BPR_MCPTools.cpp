@@ -36,6 +36,7 @@
 
 #include "Async/Async.h"
 #include "CoreGlobals.h"
+#include "IO/IoHash.h"
 
 //------------------------------------------------------------------------------
 // Helpers
@@ -165,20 +166,30 @@ namespace
 		return false;
 	}
 
-	bool ExtractAsset(const FString& AssetPath, FBPR_ExtractedData& OutData, FString& OutError)
+	/** Resolves (short name or full path) and loads an asset; fills OutError on failure. */
+	bool ResolveAndLoadAsset(const FString& AssetPath, UObject*& OutAsset, FString& OutError)
 	{
 		FString ResolvedPath;
 		if (!ResolveAssetPath(AssetPath, ResolvedPath, OutError))
 		{
 			return false;
 		}
-
-		UObject* Asset = LoadObject<UObject>(nullptr, *ResolvedPath);
-		if (!Asset)
+		OutAsset = LoadObject<UObject>(nullptr, *ResolvedPath);
+		if (!OutAsset)
 		{
 			OutError = FString::Printf(
 				TEXT("Error: asset not found at '%s'. Use search_blueprint_reader_assets to resolve a valid path."),
 				*ResolvedPath);
+			return false;
+		}
+		return true;
+	}
+
+	bool ExtractAsset(const FString& AssetPath, FBPR_ExtractedData& OutData, FString& OutError)
+	{
+		UObject* Asset = nullptr;
+		if (!ResolveAndLoadAsset(AssetPath, Asset, OutError))
+		{
 			return false;
 		}
 
@@ -483,6 +494,208 @@ namespace
 		}
 		return FString::Printf(TEXT("Error: failed to write '%s'"), *FullPath);
 	}
+
+	//--------------------------------------------------------------------------
+	// M8: validation / references / checksum
+	//--------------------------------------------------------------------------
+	FString BlueprintStatusToString(EBlueprintStatus Status)
+	{
+		switch (Status)
+		{
+		case BS_Dirty:                return TEXT("Dirty");
+		case BS_Error:                return TEXT("Error");
+		case BS_UpToDate:             return TEXT("UpToDate");
+		case BS_BeingCreated:         return TEXT("BeingCreated");
+		case BS_UpToDateWithWarnings: return TEXT("UpToDateWithWarnings");
+		case BS_Unknown:
+		default:                      return TEXT("Unknown");
+		}
+	}
+
+	/** Saved package hash (FIoHash) as hex, or empty when unsaved/unavailable. */
+	FString GetPackageSavedHashString(FName PackageName)
+	{
+		IAssetRegistry& AssetRegistry =
+			FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+		const TOptional<FAssetPackageData> PackageData = AssetRegistry.GetAssetPackageDataCopy(PackageName);
+		if (!PackageData.IsSet())
+		{
+			return FString();
+		}
+#if WITH_EDITORONLY_DATA
+		const FIoHash Hash = PackageData->GetPackageSavedHash();
+		if (Hash.IsZero())
+		{
+			return FString();
+		}
+		return LexToString(Hash);
+#else
+		return FString();
+#endif
+	}
+
+	FString Impl_GetChecksum(const TSharedPtr<FJsonObject>& Params)
+	{
+		const FString Path = JsonGetString(Params, TEXT("asset_path"));
+		if (Path.IsEmpty())
+		{
+			return TEXT("Error: 'asset_path' is required.");
+		}
+
+		UObject* Asset = nullptr;
+		FString Error;
+		if (!ResolveAndLoadAsset(Path, Asset, Error))
+		{
+			return Error;
+		}
+
+		const FName PackageName = Asset->GetOutermost()->GetFName();
+		const FString Hash = GetPackageSavedHashString(PackageName);
+		if (Hash.IsEmpty())
+		{
+			return FString::Printf(
+				TEXT("Error: no saved package hash for '%s' (package may be unsaved or not on disk)."),
+				*PackageName.ToString());
+		}
+		return Hash;
+	}
+
+	FString Impl_GetReferences(const TSharedPtr<FJsonObject>& Params)
+	{
+		const FString Path = JsonGetString(Params, TEXT("asset_path"));
+		const FString Direction = JsonGetString(Params, TEXT("direction"), TEXT("dependencies"));
+		if (Path.IsEmpty())
+		{
+			return TEXT("Error: 'asset_path' is required.");
+		}
+
+		UObject* Asset = nullptr;
+		FString Error;
+		if (!ResolveAndLoadAsset(Path, Asset, Error))
+		{
+			return Error;
+		}
+
+		IAssetRegistry& AssetRegistry =
+			FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+
+		const FName PackageName = Asset->GetOutermost()->GetFName();
+		const bool bReferencers = Direction.ToLower() == TEXT("referencers");
+		TArray<FName> Refs;
+		if (bReferencers)
+		{
+			AssetRegistry.GetReferencers(PackageName, Refs, UE::AssetRegistry::EDependencyCategory::All);
+		}
+		else
+		{
+			AssetRegistry.GetDependencies(PackageName, Refs, UE::AssetRegistry::EDependencyCategory::All);
+		}
+
+		const TCHAR* Label = bReferencers ? TEXT("referencers") : TEXT("dependencies");
+		if (Refs.Num() == 0)
+		{
+			return FString::Printf(TEXT("0 %s for '%s'."), Label, *PackageName.ToString());
+		}
+
+		Refs.Sort(FNameLexicalLess());
+		FString Out = FString::Printf(TEXT("%d %s for '%s':\n"), Refs.Num(), Label, *PackageName.ToString());
+		for (const FName& Ref : Refs)
+		{
+			Out += Ref.ToString() + TEXT("\n");
+		}
+		return Out.TrimEnd();
+	}
+
+	FString Impl_ValidateAsset(const TSharedPtr<FJsonObject>& Params)
+	{
+		const FString Path = JsonGetString(Params, TEXT("asset_path"));
+		if (Path.IsEmpty())
+		{
+			return TEXT("Error: 'asset_path' is required.");
+		}
+
+		UObject* Asset = nullptr;
+		FString Error;
+		if (!ResolveAndLoadAsset(Path, Asset, Error))
+		{
+			return Error;
+		}
+
+		FString Out;
+		Out += FString::Printf(TEXT("# Validation: %s\n\n"), *Asset->GetName());
+		Out += FString::Printf(TEXT("> %s\n\n"), *Asset->GetPathName());
+
+		bool bValid = true;
+
+		// Compile status (Blueprints only; other types carry no compile-state concept here).
+		if (UBlueprint* BP = Cast<UBlueprint>(Asset))
+		{
+			const EBlueprintStatus Status = BP->Status;
+			const bool bHasErrors = (Status == BS_Error);
+			const bool bUpToDate = (Status == BS_UpToDate || Status == BS_UpToDateWithWarnings);
+			Out += TEXT("## Compile\n");
+			Out += FString::Printf(TEXT("- Status: %s\n"), *BlueprintStatusToString(Status));
+			Out += FString::Printf(TEXT("- Up to date: %s\n"), bUpToDate ? TEXT("true") : TEXT("false"));
+			Out += FString::Printf(TEXT("- Has compile errors: %s\n\n"), bHasErrors ? TEXT("true") : TEXT("false"));
+			if (bHasErrors)
+			{
+				bValid = false;
+			}
+		}
+
+		// Dependencies + missing /Game/ packages (informational heuristic).
+		IAssetRegistry& AssetRegistry =
+			FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+		const FName PackageName = Asset->GetOutermost()->GetFName();
+		TArray<FName> Deps;
+		AssetRegistry.GetDependencies(PackageName, Deps, UE::AssetRegistry::EDependencyCategory::All);
+
+		int32 GameDeps = 0;
+		TArray<FString> MissingGameDeps;
+		for (const FName& Dep : Deps)
+		{
+			const FString DepStr = Dep.ToString();
+			if (!DepStr.StartsWith(TEXT("/Game/")))
+			{
+				continue;
+			}
+			++GameDeps;
+			TArray<FAssetData> Found;
+			AssetRegistry.GetAssetsByPackageName(Dep, Found);
+			if (Found.Num() == 0)
+			{
+				MissingGameDeps.Add(DepStr);
+			}
+		}
+
+		Out += TEXT("## Dependencies\n");
+		Out += FString::Printf(TEXT("- Total: %d\n"), Deps.Num());
+		Out += FString::Printf(TEXT("- /Game/ packages: %d\n"), GameDeps);
+		Out += FString::Printf(TEXT("- Missing from registry: %d\n"), MissingGameDeps.Num());
+		for (const FString& M : MissingGameDeps)
+		{
+			Out += FString::Printf(TEXT("  - %s\n"), *M);
+		}
+		Out += TEXT("\n");
+
+		// Checksum
+		const FString Hash = GetPackageSavedHashString(PackageName);
+		Out += TEXT("## Checksum\n");
+		if (Hash.IsEmpty())
+		{
+			Out += TEXT("- none (unsaved)\n\n");
+		}
+		else
+		{
+			Out += FString::Printf(TEXT("- %s\n\n"), *Hash);
+		}
+
+		// Verdict
+		Out += TEXT("## Verdict\n");
+		Out += FString::Printf(TEXT("- Valid: %s\n"), bValid ? TEXT("true") : TEXT("false"));
+
+		return Out;
+	}
 }
 
 #endif // BPR_HAS_MCP
@@ -539,6 +752,22 @@ void RegisterBlueprintReaderMCPTools()
 		MakeInputSchema({ {TEXT("asset_path"), TEXT("string")}, {TEXT("output_dir"), TEXT("string")}, {TEXT("format"), TEXT("string")} },
 			{ TEXT("asset_path") }),
 		&Impl_ExportAsset);
+
+	Add(TEXT("get_blueprint_reader_checksum"),
+		TEXT("Returns the saved package hash (checksum) of the asset at asset_path — for freshness checks."),
+		MakeInputSchema({ {TEXT("asset_path"), TEXT("string")} }, { TEXT("asset_path") }),
+		&Impl_GetChecksum);
+
+	Add(TEXT("get_blueprint_reader_references"),
+		TEXT("Lists the asset's package dependencies (or referencers) from the Asset Registry. 'direction': dependencies (default) | referencers."),
+		MakeInputSchema({ {TEXT("asset_path"), TEXT("string")}, {TEXT("direction"), TEXT("string")} },
+			{ TEXT("asset_path") }),
+		&Impl_GetReferences);
+
+	Add(TEXT("validate_blueprint_reader_asset"),
+		TEXT("Validates the asset: compile status (Blueprints), dependency count + missing /Game/ packages, checksum, verdict."),
+		MakeInputSchema({ {TEXT("asset_path"), TEXT("string")} }, { TEXT("asset_path") }),
+		&Impl_ValidateAsset);
 #endif
 }
 
