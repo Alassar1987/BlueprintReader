@@ -91,18 +91,91 @@ namespace
 		return Mod.GetCoreInstance();
 	}
 
+	/** The supported asset classes, shared by SearchAssets and asset resolution. */
+	TArray<FTopLevelAssetPath> GetSupportedClassPaths()
+	{
+		return {
+			UBlueprint::StaticClass()->GetClassPathName(),
+			UWidgetBlueprint::StaticClass()->GetClassPathName(),
+			UMaterial::StaticClass()->GetClassPathName(),
+			UMaterialFunction::StaticClass()->GetClassPathName(),
+			UUserDefinedStruct::StaticClass()->GetClassPathName(),
+			UUserDefinedEnum::StaticClass()->GetClassPathName(),
+		};
+	}
+
 	/**
-	 * Resolves the asset at AssetPath and extracts it via BPR_Core.
-	 * Returns false and fills OutError when the asset cannot be loaded or Core is absent.
+	 * Resolves an agent-supplied asset reference. A full object path (contains '/')
+	 * is used as-is; otherwise the value is treated as a short asset name and looked
+	 * up in the AssetRegistry. Must match exactly one supported asset.
 	 */
+	bool ResolveAssetPath(const FString& InPath, FString& OutPath, FString& OutError)
+	{
+		if (InPath.Contains(TEXT("/")))
+		{
+			OutPath = InPath;
+			return true;
+		}
+
+		IAssetRegistry& AssetRegistry =
+			FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+
+		TArray<FString> Matches;
+		TSet<FString> Seen;
+		for (const FTopLevelAssetPath& ClassPath : GetSupportedClassPaths())
+		{
+			TArray<FAssetData> ClassAssets;
+			AssetRegistry.GetAssetsByClass(ClassPath, ClassAssets, /*bSearchSubClasses=*/true);
+			for (const FAssetData& Asset : ClassAssets)
+			{
+				if (Asset.AssetName.ToString() != InPath)
+				{
+					continue;
+				}
+				const FString Path = Asset.GetObjectPathString();
+				if (Seen.Contains(Path))
+				{
+					continue;
+				}
+				Seen.Add(Path);
+				Matches.Add(Path);
+			}
+		}
+
+		if (Matches.Num() == 1)
+		{
+			OutPath = Matches[0];
+			return true;
+		}
+
+		if (Matches.Num() == 0)
+		{
+			OutError = FString::Printf(
+				TEXT("Error: no asset named '%s'. Use search_blueprint_reader_assets to resolve a valid name or full path."),
+				*InPath);
+			return false;
+		}
+
+		OutError = FString::Printf(
+			TEXT("Error: '%s' is ambiguous (%d matches). Pass a full path, one of:\n%s"),
+			*InPath, Matches.Num(), *FString::Join(Matches, TEXT("\n")));
+		return false;
+	}
+
 	bool ExtractAsset(const FString& AssetPath, FBPR_ExtractedData& OutData, FString& OutError)
 	{
-		UObject* Asset = LoadObject<UObject>(nullptr, *AssetPath);
+		FString ResolvedPath;
+		if (!ResolveAssetPath(AssetPath, ResolvedPath, OutError))
+		{
+			return false;
+		}
+
+		UObject* Asset = LoadObject<UObject>(nullptr, *ResolvedPath);
 		if (!Asset)
 		{
 			OutError = FString::Printf(
 				TEXT("Error: asset not found at '%s'. Use search_blueprint_reader_assets to resolve a valid path."),
-				*AssetPath);
+				*ResolvedPath);
 			return false;
 		}
 
@@ -216,14 +289,7 @@ namespace
 		IAssetRegistry& AssetRegistry =
 			FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
 
-		TArray<FTopLevelAssetPath> ClassPaths = {
-			UBlueprint::StaticClass()->GetClassPathName(),
-			UWidgetBlueprint::StaticClass()->GetClassPathName(),
-			UMaterial::StaticClass()->GetClassPathName(),
-			UMaterialFunction::StaticClass()->GetClassPathName(),
-			UUserDefinedStruct::StaticClass()->GetClassPathName(),
-			UUserDefinedEnum::StaticClass()->GetClassPathName(),
-		};
+		const TArray<FTopLevelAssetPath> ClassPaths = GetSupportedClassPaths();
 
 		const FString TypeFilterLower = TypeFilter.ToLower();
 		TArray<FString> Lines;
